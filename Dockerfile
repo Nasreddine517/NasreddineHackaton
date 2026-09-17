@@ -7,6 +7,7 @@ COPY tsconfig.json tsup.config.ts ./
 COPY apps ./apps
 COPY packages ./packages
 COPY tests ./tests
+COPY scripts ./scripts
 RUN pnpm build
 
 FROM build AS production-deps

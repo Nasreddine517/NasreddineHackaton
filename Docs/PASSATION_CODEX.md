@@ -172,10 +172,10 @@ Prévoir une mémoire isolée par client, des opérations de commande atomiques,
 
 ## 8. Accès aux modèles et secrets
 
-Le propriétaire a reçu par email deux accès, désignés GPT-5.5 et GPT-4.1, avec pour chacun `LLM_URL`, `LLM_API_KEY` et l’identifiant de modèle.
+Mise à jour du 18 septembre : le propriétaire a précisé les deux formats reçus par email. GPT-5.5 utilise `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL`. GPT-4.1 utilise `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION=2024-12-01-preview`, `AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1` et `AZURE_OPENAI_MAX_TOKENS=16384`. Les anciens champs `SECONDARY_LLM_*` ont été remplacés par ces champs Azure.
 
 - Il s’agit d’accès API, pas seulement d’une interface de discussion.
-- Aucune valeur réelle n’a été confiée dans la conversation ni configurée lors de cette passation.
+- Les valeurs réelles sont désormais configurées localement, hors Git. Les appels texte aux deux modèles et l’embedding `embedder-small-3` en 512 dimensions ont réussi. Voir le journal de développement pour l’état le plus récent.
 - Ne pas inventer les URLs, noms exacts de modèle ou capacités de l’endpoint.
 - Prévoir une configuration côté serveur pouvant accueillir les deux accès ; ne pas imposer arbitrairement une répartition des modèles avant vérification.
 - Tester les appels texte et les outils, puis les capacités image et audio effectivement exposées.

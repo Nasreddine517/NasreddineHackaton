@@ -18,6 +18,15 @@ const schema = z.object({
   LLM_URL: z.string().default(''),
   LLM_API_KEY: z.string().default(''),
   LLM_MODEL: z.string().default(''),
+  AZURE_OPENAI_ENDPOINT: z.string().default(''),
+  AZURE_OPENAI_API_KEY: z.string().default(''),
+  AZURE_OPENAI_API_VERSION: z.string().default('2024-12-01-preview'),
+  AZURE_OPENAI_DEPLOYMENT_NAME: z.string().default('gpt-4.1'),
+  AZURE_OPENAI_MAX_TOKENS: z.coerce.number().int().min(1).max(16384).default(16384),
+  EMBEDDING_MODEL: z.string().default('embedder-small-3'),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().min(1).max(65536).default(512),
+  EMBEDDING_URL: z.string().default(''),
+  EMBEDDING_API_KEY: z.string().default(''),
 });
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -35,6 +44,36 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const llmValues = [config.LLM_URL, config.LLM_API_KEY, config.LLM_MODEL];
   if (llmValues.some(Boolean) && !llmValues.every(Boolean)) {
     throw new Error('LLM_URL, LLM_API_KEY and LLM_MODEL must be configured together.');
+  }
+  if (config.AZURE_OPENAI_ENDPOINT || config.AZURE_OPENAI_API_KEY) {
+    if (
+      ![
+        config.AZURE_OPENAI_ENDPOINT,
+        config.AZURE_OPENAI_API_KEY,
+        config.AZURE_OPENAI_API_VERSION,
+        config.AZURE_OPENAI_DEPLOYMENT_NAME,
+      ].every(Boolean)
+    ) {
+      throw new Error(
+        'Azure endpoint, key, API version and deployment must be configured together.',
+      );
+    }
+    if (!/^\d{4}-\d{2}-\d{2}(?:-preview)?$/.test(config.AZURE_OPENAI_API_VERSION)) {
+      throw new Error('AZURE_OPENAI_API_VERSION must be a dated API version.');
+    }
+  }
+  if (Boolean(config.EMBEDDING_URL) !== Boolean(config.EMBEDDING_API_KEY)) {
+    throw new Error('EMBEDDING_URL and EMBEDDING_API_KEY must be supplied together.');
+  }
+  for (const name of ['LLM_URL', 'AZURE_OPENAI_ENDPOINT', 'EMBEDDING_URL'] as const) {
+    if (!config[name]) continue;
+    try {
+      const url = new URL(config[name]);
+      if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
+        throw new Error();
+    } catch {
+      throw new Error(`${name} must be an HTTPS base URL without credentials, query or fragment.`);
+    }
   }
   return config;
 }

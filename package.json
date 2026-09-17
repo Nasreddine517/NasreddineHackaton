@@ -16,7 +16,8 @@
     "test": "tsx --test tests/*.test.ts",
     "db:migrate": "tsx packages/core/src/db/cli.ts migrate",
     "db:seed": "tsx packages/core/src/db/cli.ts seed",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test",
+    "models:check": "tsx scripts/check-models.ts"
   },
   "dependencies": {
     "@fastify/websocket": "11.2.0",
@@ -26,6 +27,7 @@
     "fastify": "5.12.5",
     "ioredis": "5.7.0",
     "lucide-react": "0.468.0",
+    "openai": "7.17.0",
     "pg": "8.16.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",

@@ -13,5 +13,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["apps", "packages", "tests", "tsup.config.ts"]
+  "include": ["apps", "packages", "scripts", "tests", "tsup.config.ts"]
 }

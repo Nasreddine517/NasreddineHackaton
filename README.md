@@ -188,9 +188,19 @@ Lancer `pnpm dev:api` et `pnpm dev:web` dans deux terminaux ; l’interface se t
 
 Les tests SQL embarqués utilisent PGlite uniquement comme outil de test. L’application reste conçue pour PostgreSQL 16. Ces tests ne remplacent pas les vérifications réseau, de concurrence et de redémarrage sur les vrais services Docker.
 
-L’accès aux modèles reposera sur les paramètres fournis par les organisateurs : `LLM_URL`, `LLM_API_KEY` et l’identifiant exact du modèle. Les accès GPT-5.5 et GPT-4.1 seront testés avant de fixer leur répartition entre les tâches.
+Les accès fournis utilisent deux configurations distinctes :
 
-Les secrets restent côté serveur, dans `.env`, exclu de Git. `.env.example` documente les variables nécessaires sans contenir de clé réelle. Les deux modèles devront être configurés et testés avant de valider les fonctions autonomes.
+| Accès | Variables |
+| --- | --- |
+| GPT-5.5, endpoint compatible OpenAI v1 | `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL` |
+| GPT-4.1, déploiement Azure | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_MAX_TOKENS` |
+| Embeddings | `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` ; endpoint et clé principaux par défaut |
+
+La version Azure fournie est `2024-12-01-preview`, avec une limite configurée à `16384` tokens. Ce plafond n’est pas une consommation imposée à chaque appel. Le modèle d’embeddings fourni est `embedder-small-3`, avec `512` dimensions. Des champs `EMBEDDING_URL` et `EMBEDDING_API_KEY` existent pour un éventuel accès distinct.
+
+Le SDK officiel utilise un [client Azure spécifique](https://developers.openai.com/api/reference/typescript#microsoft-azure-openai) pour le déploiement GPT-4.1. Les anciens champs `SECONDARY_LLM_*` sont remplacés par les noms Azure ci-dessus.
+
+Les secrets restent côté serveur, dans `.env`, exclu de Git. `.env.example` ne contient aucune clé réelle. `pnpm models:check` effectue trois requêtes de diagnostic avec du texte fictif et un budget borné, sans afficher les clés ou les réponses brutes. Ces tests réels ont réussi pour les deux modèles de dialogue et pour les embeddings de 512 dimensions. Ils ne valident pas encore les capacités audio, image, appels d’outils ni les agents commerciaux.
 
 ## Validation prévue
 
