@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+Data/
+tmp/
+dist/
+node_modules/
+.pnpm-store/

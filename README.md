@@ -6,7 +6,7 @@ Kenza est un projet d’agent commercial pour les boutiques qui vendent par mess
 
 Projet réalisé dans le cadre du hackathon **ESISA × Numeos Technology**, sujet 02, du 17 au 19 septembre 2026.
 
-> **État du projet : conception.** Ce README décrit le périmètre retenu et l’architecture cible. L’application n’est pas encore implémentée ; les fonctionnalités ci-dessous constituent la feuille de route de développement.
+> **État du projet : socle et données en cours de validation.** La structure React/Fastify, le WebSocket, les cinq services Docker, les migrations et les premiers outils métier sont implémentés. Le chat commercial, les agents et la supervision ne sont pas encore disponibles. Le [plan par lots](Docs/PLAN_DEVELOPPEMENT.md) et le [journal de reprise](Docs/ETAT_DEVELOPPEMENT.md) distinguent ce qui est vérifié de ce qui reste à faire.
 
 ## Le besoin
 
@@ -34,6 +34,8 @@ Lors d’un prochain échange, le contexte du client permet de reprendre la conv
 - Consultation du catalogue et du stock par des outils connectés aux données.
 - Questions ciblées lorsqu’une demande est ambiguë ou incomplète.
 - Mémoire par client : échanges précédents, contexte utile et historique des commandes.
+- Réponses immédiates aux messages entrants, 24 h/24.
+- Simulateur sans inscription : choix d’un client fictif ou création d’un profil de démonstration avec identifiant stable.
 
 ### Panier et commande
 
@@ -52,13 +54,16 @@ Lors d’un prochain échange, le contexte du client permet de reprendre la conv
 - File d’escalade avec motif, résumé, panier et historique complet.
 - Reprise humaine de la conversation, avec suspension des réponses automatiques.
 - Journal des actions : outils appelés, résultats et motifs des transferts.
+- Accès protégé par un compte commerçant unique.
 
 ### Relances et suivi
 
 - Détection des paniers abandonnés et décision de relance selon le contexte.
 - Planification persistante des envois dans une file de tâches.
+- Échéance à 30 minutes après le dernier message du client, même la nuit ; chaque nouveau message remet le délai à zéro.
 - Vérification de l’éligibilité avant envoi : panier toujours pertinent, absence de commande finalisée et de reprise humaine.
 - Limitation des relances et prise en compte du refus du client.
+- Une seule relance pour un même abandon ; aucune répétition automatique toutes les 30 minutes.
 - Suivi des envois, réponses et commandes associées.
 
 ## Les quatre extensions retenues
@@ -70,7 +75,7 @@ Lors d’un prochain échange, le contexte du client permet de reprendre la conv
 | **Négociation encadrée** | Proposer une remise autorisée, appliquer un plancher contrôlé par le code et transférer les demandes d’exception. |
 | **A/B testing des relances** | Répartir les clients éligibles entre deux variantes, suivre leurs résultats et afficher les effectifs ainsi que les conversions observées. |
 
-Les capacités audio et image des endpoints fournis restent à vérifier. La précision de la recherche visuelle dépendra également des images de référence disponibles pour le catalogue. La réponse vocale de l’agent ne fait pas partie du périmètre actuel.
+Les capacités audio et image des endpoints fournis restent à vérifier. Le périmètre visuel retenu est l’extraction des caractéristiques d’une photo pour proposer des produits similaires du catalogue, sans identification exacte ni photos de référence obligatoires. La réponse vocale de l’agent ne fait pas partie du périmètre actuel.
 
 ## Règles commerciales
 
@@ -78,8 +83,8 @@ Les contrôles critiques seront appliqués dans les outils métier, au moment de
 
 | Situation | Règle |
 | --- | --- |
-| Prix et promotions | Utiliser le catalogue et les promotions valides, avec leurs conditions d’application. |
-| Demande de remise | Ne pas dépasser 10 % sans validation humaine. |
+| Prix et promotions | Promotion valide et applicable prioritaire, sans cumul avec une remise supplémentaire. |
+| Demande de remise | Hors promotion, proposition possible face à une hésitation du client, dans la limite de 10 % sans validation humaine. |
 | Rupture de stock | Annoncer l’indisponibilité et rechercher une alternative réellement disponible. |
 | Réassort | Ne jamais promettre une date à partir du délai indicatif du catalogue. |
 | Livraison | Utiliser exclusivement les frais et délais de la grille fournie. |
@@ -151,17 +156,41 @@ Le jeu de données fourni par les organisateurs décrit une boutique fictive.
 | `politique-commerciale.md` | Règles de prix, de stock et d’escalade |
 | `faq-boutique.md` | Informations pratiques de la boutique |
 
-Le cahier des charges est disponible localement dans `Docs/` et l’archive des données dans `Data/`. Leur présence sur GitHub dépendra d’un ajout séparé ; ce premier dépôt documentaire ne les publie pas.
+Le cahier des charges est disponible localement dans `Docs/` et l’archive d’origine dans `Data/`. Les fichiers nécessaires à l’import sont extraits dans `Data/seed/`, sans modification de leur contenu. Les règles validées dans le plan de développement remplacent explicitement la mention de traitement différé des messages nocturnes présente dans la FAQ source.
 
 ## Installation et configuration
 
-**Il n’existe pas encore de version exécutable.** Les fichiers Docker, les dépendances et les instructions d’installation seront ajoutés avec le socle applicatif.
+Le socle peut être compilé et l’interface d’accueil ouverte. Il ne permet pas encore de passer une commande. Le démarrage complet Docker reste à vérifier : le moteur Docker Desktop de l’environnement de développement présente une erreur avant le lancement des conteneurs.
 
-La cible est un lancement par `docker compose up`, après configuration, avec cinq services : `web`, `api`, `postgres` et `redis`, ainsi qu’un `worker` dédié aux tâches de fond.
+### Avec Docker
+
+Prérequis : Docker Desktop démarré avec le moteur Linux et Docker Compose.
+
+1. Copier `.env.example` vers `.env` et adapter les paramètres locaux.
+2. Lancer `docker compose up --build`.
+3. Ouvrir `http://localhost:8080`.
+
+Les services prévus sont `web`, `api`, `postgres`, `redis` et `worker`. Les migrations et le premier import s’exécutent au démarrage de l’API. Un import déjà effectué ne remet pas le stock à zéro. Les données PostgreSQL et Redis sont conservées dans des volumes.
+
+Les ports sont liés à l’interface locale. Les identifiants PostgreSQL d’exemple sont destinés au développement local. Les capacités conversationnelles ne sont pas activées par la seule présence d’une clé LLM.
+
+### Développement local
+
+Prérequis : Node.js 20.19 ou supérieur et pnpm 10.26.1. Les images applicatives utilisent Node.js 20.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm check
+pnpm build
+```
+
+Lancer `pnpm dev:api` et `pnpm dev:web` dans deux terminaux ; l’interface se trouve à `http://localhost:5173`. Pour activer les dépendances : `docker compose up -d postgres redis`, puis `pnpm db:migrate`, `pnpm db:seed` et `pnpm dev:worker`.
+
+Les tests SQL embarqués utilisent PGlite uniquement comme outil de test. L’application reste conçue pour PostgreSQL 16. Ces tests ne remplacent pas les vérifications réseau, de concurrence et de redémarrage sur les vrais services Docker.
 
 L’accès aux modèles reposera sur les paramètres fournis par les organisateurs : `LLM_URL`, `LLM_API_KEY` et l’identifiant exact du modèle. Les accès GPT-5.5 et GPT-4.1 seront testés avant de fixer leur répartition entre les tâches.
 
-Les secrets resteront côté serveur, dans une configuration locale exclue de Git. Le futur `.env.example` documentera les variables nécessaires sans contenir de clé réelle.
+Les secrets restent côté serveur, dans `.env`, exclu de Git. `.env.example` documente les variables nécessaires sans contenir de clé réelle. Les deux modèles devront être configurés et testés avant de valider les fonctions autonomes.
 
 ## Validation prévue
 
@@ -188,4 +217,4 @@ Le simulateur web est le canal retenu. Une intégration WhatsApp réelle pourra 
 
 Le paiement en ligne réel, l’application mobile native, la gestion multi-boutiques, les rôles utilisateurs et la gestion complète des retours sont hors périmètre.
 
-Avant leur implémentation, les règles suivantes devront être fixées : cumul des promotions et remises, délai d’abandon, horaires et fréquence des relances, formule du taux de conversion et identification des clients dans le simulateur. Les choix retenus seront documentés avec leur mise en œuvre.
+Le cumul, le délai, les horaires de relance et l’identité des utilisateurs ont été décidés dans le plan de développement. La formule du taux de conversion et la fenêtre d’attribution A/B seront documentées avec leur implémentation.

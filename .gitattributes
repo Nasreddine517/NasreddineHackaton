@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Preserve the supplied corpus byte-for-byte, including original line endings.
+Data/seed/* -text -whitespace

@@ -1,0 +1,114 @@
+name: kenza
+
+x-server-env: &server-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:-kenza}:${POSTGRES_PASSWORD:-kenza_local_only}@postgres:5432/${POSTGRES_DB:-kenza}
+  REDIS_URL: redis://redis:6379
+  API_PORT: 3000
+  API_HOST: 0.0.0.0
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  LLM_URL: ${LLM_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+  SECONDARY_LLM_URL: ${SECONDARY_LLM_URL:-}
+  SECONDARY_LLM_API_KEY: ${SECONDARY_LLM_API_KEY:-}
+  SECONDARY_LLM_MODEL: ${SECONDARY_LLM_MODEL:-}
+  MERCHANT_EMAIL: ${MERCHANT_EMAIL:-}
+  MERCHANT_PASSWORD: ${MERCHANT_PASSWORD:-}
+  SESSION_SECRET: ${SESSION_SECRET:-}
+  FOLLOWUP_DELAY_MS: ${FOLLOWUP_DELAY_MS:-1800000}
+  DEMO_MODE: ${DEMO_MODE:-false}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kenza}
+      POSTGRES_USER: ${POSTGRES_USER:-kenza}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kenza_local_only}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '127.0.0.1:6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      target: server
+    environment: *server-env
+    command:
+      [
+        'sh',
+        '-c',
+        'node dist/server/db.js migrate && node dist/server/db.js seed && exec node dist/server/api.js',
+      ]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      target: server
+    environment: *server-env
+    command: ['node', 'dist/server/worker.js']
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "import('ioredis').then(async ({default:R})=>{const r=new R(process.env.REDIS_URL);const v=await r.get('kenza:worker:heartbeat');await r.quit();process.exit(v&&Date.now()-Number(v)<45000?0:1)})",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:80'
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/ || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:

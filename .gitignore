@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+tmp/
+coverage/
+*.log
+.pnpm-store/
+.local/
+Data/extracted/
