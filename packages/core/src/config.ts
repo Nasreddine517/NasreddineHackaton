@@ -5,7 +5,7 @@ const schema = z.object({
   DATABASE_URL: z
     .string()
     .url()
-    .default('postgresql://kenza:kenza_local_only@localhost:5432/kenza'),
+    .default('postgresql://kenza:kenza_local_only@localhost:15432/kenza'),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   API_HOST: z.enum(['127.0.0.1', '0.0.0.0']).default('127.0.0.1'),

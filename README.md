@@ -160,7 +160,7 @@ Le cahier des charges est disponible localement dans `Docs/` et l’archive d’
 
 ## Installation et configuration
 
-Le socle peut être compilé et l’interface d’accueil ouverte. Il ne permet pas encore de passer une commande. Le démarrage complet Docker reste à vérifier : le moteur Docker Desktop de l’environnement de développement présente une erreur avant le lancement des conteneurs.
+Le socle est compilé et les cinq services Docker démarrent. L’interface d’accueil, l’API, PostgreSQL, Redis et le signal de santé du worker sont vérifiés. Il ne permet pas encore de passer une commande.
 
 ### Avec Docker
 
@@ -172,7 +172,7 @@ Prérequis : Docker Desktop démarré avec le moteur Linux et Docker Compose.
 
 Les services prévus sont `web`, `api`, `postgres`, `redis` et `worker`. Les migrations et le premier import s’exécutent au démarrage de l’API. Un import déjà effectué ne remet pas le stock à zéro. Les données PostgreSQL et Redis sont conservées dans des volumes.
 
-Les ports sont liés à l’interface locale. Les identifiants PostgreSQL d’exemple sont destinés au développement local. Les capacités conversationnelles ne sont pas activées par la seule présence d’une clé LLM.
+Les ports sont liés à l’interface locale. PostgreSQL est accessible depuis l’hôte sur le port `15432` (configurable avec `POSTGRES_HOST_PORT`) et reste sur `5432` dans le réseau Docker. Les identifiants PostgreSQL d’exemple sont destinés au développement local. Les capacités conversationnelles ne sont pas activées par la seule présence d’une clé LLM.
 
 ### Développement local
 

@@ -3,6 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+# Local access notes must never be committed.
+Docs/API's
 tmp/
 coverage/
 *.log
