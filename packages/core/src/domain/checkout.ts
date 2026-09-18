@@ -75,13 +75,15 @@ export async function getCart(db: Pick<pg.Pool, 'query'>, customerId: string) {
   ).rows;
 }
 
-export async function setCartItem(pool: pg.Pool, customerId: string, input: unknown) {
+export async function setCartItem(pool: pg.Pool, customerId: string, input: unknown, expectedRevision?: number) {
   const data = z
     .object({ ref: z.string().min(1).max(80), quantity: z.number().int().min(0).max(20) })
     .strict()
     .parse(input);
   return transaction(pool, async (db) => {
-    await lockCart(db, customerId);
+    const revision = await lockCart(db, customerId);
+    if(expectedRevision !== undefined && revision !== expectedRevision)
+      throw new BusinessError('CART_CHANGED','Votre panier a changé pendant ma réponse. Vérifiez-le avant de renouveler la demande.');
     const product = (await db.query('SELECT stock FROM products WHERE ref=$1', [data.ref])).rows[0];
     if (!product) throw new BusinessError('PRODUCT_NOT_FOUND', 'Cet article est introuvable.');
     if (data.quantity > product.stock)

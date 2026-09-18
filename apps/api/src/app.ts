@@ -4,6 +4,8 @@ import { ZodError } from 'zod';
 import { BusinessError } from '../../../packages/core/src/domain/pricing.js';
 import { registerCommerce, type MerchantConfig } from './commerce.js';
 import type { createConnections } from '../../../packages/core/src/connections.js';
+import type { AgentModels } from '../../../packages/core/src/agents/models.js';
+import { registerChat } from './chat.js';
 
 type Dependencies = ReturnType<typeof createConnections>;
 
@@ -11,6 +13,7 @@ export async function createApp(
   connections: Dependencies,
   logLevel = 'info',
   merchant: MerchantConfig = { MERCHANT_EMAIL: '', MERCHANT_PASSWORD: '', COOKIE_SECURE: false },
+  models?: AgentModels,
 ) {
   const app = Fastify({
     logger: {
@@ -21,7 +24,8 @@ export async function createApp(
     requestTimeout: 30000,
   });
   await app.register(websocket);
-  await registerCommerce(app, connections, merchant);
+  const auth = await registerCommerce(app, connections, merchant);
+  if (models) await registerChat(app, connections, auth, models);
   app.get('/api/health/live', async () => ({ status: 'ok', service: 'kenza-api' }));
   app.get('/api/health/ready', async (_request, reply) => {
     const [db, redis, heartbeat] = await Promise.allSettled([
@@ -42,8 +46,8 @@ export async function createApp(
     };
   });
   app.get('/api/system', async () => ({
-    phase: 'checkout',
-    chatEnabled: false,
+    phase: models ? 'agents' : 'checkout',
+    chatEnabled: Boolean(models),
     merchantEnabled: Boolean(merchant.MERCHANT_EMAIL && merchant.MERCHANT_PASSWORD),
     checkoutEnabled: true,
     followupEnabled: false,
@@ -54,7 +58,7 @@ export async function createApp(
       socket.send(
         JSON.stringify({
           type: 'unavailable',
-          message: 'Le parcours conversationnel sera disponible au lot 4.',
+          message: 'Ouvrez un profil client pour accéder au canal de conversation authentifié.',
         }),
       );
     });
@@ -63,12 +67,10 @@ export async function createApp(
     if (error instanceof BusinessError)
       return reply.code(409).send({ error: error.code, message: error.message });
     if (error instanceof ZodError)
-      return reply
-        .code(400)
-        .send({
-          error: 'INVALID_REQUEST',
-          message: 'Vérifiez les champs saisis et le mode de paiement.',
-        });
+      return reply.code(400).send({
+        error: 'INVALID_REQUEST',
+        message: 'Vérifiez les champs saisis et le mode de paiement.',
+      });
     const failure =
       error instanceof Error
         ? (error as Error & { code?: string; statusCode?: number })

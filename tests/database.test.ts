@@ -63,6 +63,18 @@ test('SQL migrations, reproducible import, constraints and catalogue tools (embe
           0,
         );
         assert.equal((await searchProducts(pool, { query: '%' })).length, 0);
+        const blue = await searchProducts(pool, {
+          query: 'foulard',
+          color: 'bleu',
+          material: 'coton',
+          maxPriceCentimes: 20000,
+        });
+        assert.ok(blue.some((p) => p.ref === 'REF-0006'));
+        assert.equal(
+          (await searchProducts(pool, { query: 'foulard', color: 'bleu', maxPriceCentimes: 100 }))
+            .length,
+          0,
+        );
         const promotional = await searchProducts(
           pool,
           { query: 'REF-0074', availableOnly: false },

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowLeft, ShoppingBag, Trash2, Store } from 'lucide-react';
+import { Chat } from './Chat';
+import { MerchantConversations } from './MerchantConversations';
 import type { Product } from '../../../packages/core/src/domain/catalogue.js';
 import type { CheckoutSnapshot } from '../../../packages/core/src/domain/checkout.js';
 
@@ -246,6 +248,16 @@ export function Commerce({ mode, onBack }: { mode: 'client' | 'merchant'; onBack
                 </form>
               </details>
             </section>
+            {profile && (
+              <Chat
+                key={profile.id}
+                customerId={profile.id}
+                onChanged={refreshClient}
+                onAdd={(ref) =>
+                  editItem(ref, (items.find((i) => i.ref === ref)?.quantity ?? 0) + 1)
+                }
+              />
+            )}
             <div className="shop-layout">
               <section>
                 <form
@@ -567,6 +579,7 @@ export function Commerce({ mode, onBack }: { mode: 'client' | 'merchant'; onBack
                 </button>
               </div>
               <OrderList orders={orders} />
+              <MerchantConversations />
             </>
           ))}
       </main>

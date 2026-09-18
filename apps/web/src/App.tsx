@@ -150,8 +150,7 @@ export function App() {
             <span className="overline">AVANCEMENT DU PROJET</span>
             <h2 id="foundation-title">Le socle prend forme.</h2>
             <p>
-              Le catalogue, le panier et la confirmation de commande sont disponibles. La
-              conversation avec Kenza et les relances arrivent dans les prochains lots.
+              Le chat, la mémoire client et la préparation de commande sont disponibles. Les relances et les entrées vocales ou visuelles restent en développement.
             </p>
           </div>
           <ul className="service-list" aria-live="polite">

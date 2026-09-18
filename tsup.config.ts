@@ -6,6 +6,7 @@ export default defineConfig({
     worker: 'apps/worker/src/index.ts',
     db: 'packages/core/src/db/cli.ts',
     'check-models': 'scripts/check-models.ts',
+    'check-agents': 'scripts/check-agents.ts',
   },
   format: ['esm'],
   platform: 'node',

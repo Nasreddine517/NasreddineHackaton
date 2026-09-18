@@ -18,10 +18,14 @@
     "db:seed": "tsx packages/core/src/db/cli.ts seed",
     "check": "pnpm typecheck && pnpm test",
     "models:check": "tsx scripts/check-models.ts",
-    "merchant:setup": "tsx scripts/setup-merchant.ts"
+    "merchant:setup": "tsx scripts/setup-merchant.ts",
+    "agents:check": "tsx scripts/check-agents.ts"
   },
   "dependencies": {
     "@fastify/websocket": "11.2.0",
+    "@langchain/core": "^1.2.11",
+    "@langchain/langgraph": "^1.4.15",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
     "bullmq": "6.3.6",
     "csv-parse": "7.0.2",
     "dotenv": "16.6.1",

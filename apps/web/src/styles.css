@@ -836,3 +836,258 @@ summary:focus-visible {
     flex-wrap: wrap;
   }
 }
+
+/* Conversation */
+.chat {
+  margin-bottom: 32px;
+  padding: 0;
+  overflow: hidden;
+}
+.chat-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 26px;
+  border-bottom: 1px solid #e0e5da;
+}
+.chat-heading > div {
+  flex: 1;
+}
+.chat-heading h2 {
+  margin-bottom: 5px;
+}
+.chat-heading span:not(.avatar) {
+  font-size: 12px;
+  color: #69756c;
+}
+.chat-feed {
+  height: 470px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #f4f6ef;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.chat-empty {
+  max-width: 540px;
+  margin: auto;
+  text-align: center;
+}
+.chat-empty h3 {
+  font-size: 26px;
+}
+.suggestions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.suggestions button {
+  background: white;
+  border: 1px solid #d9e2d5;
+  font-size: 12px;
+}
+.chat-message {
+  max-width: min(85%, 740px);
+  width: fit-content;
+  background: #fff;
+  padding: 16px 20px;
+  border: 1px solid #dfe6d9;
+  border-radius: 3px 16px 16px 16px;
+}
+.chat-message.user {
+  align-self: flex-end;
+  background: #e5eddf;
+  border-radius: 16px 3px 16px 16px;
+}
+.chat-message.merchant {
+  border-left: 3px solid #b3834a;
+}
+.chat-message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 10px 0 0;
+}
+.message-author {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5e7264;
+}
+.message-author time {
+  margin-left: auto;
+  font-weight: 400;
+}
+.chat-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.chat-products > small {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: #69756c;
+}
+.chat-product {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dfe6d9;
+  border-radius: 10px;
+  flex: 1 1 180px;
+}
+.chat-product span {
+  font-size: 12px;
+}
+.chat-product button {
+  font-size: 12px;
+  padding: 9px;
+}
+.chat-quote {
+  border-top: 1px solid #dfe6d9;
+  margin-top: 18px;
+  min-width: min(320px, 100%);
+}
+.chat-quote p {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+.chat-quote small {
+  display: block;
+  margin: 14px 0;
+  color: #69756c;
+}
+.chat-stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #69756c;
+}
+.chat-stage span {
+  width: 8px;
+  height: 8px;
+  background: #175a48;
+  border-radius: 50%;
+}
+.commerce .chat-composer {
+  flex-direction: row;
+  align-items: end;
+  padding: 20px 26px;
+}
+.chat-composer textarea {
+  min-height: 65px;
+  max-height: 180px;
+}
+.chat-composer button {
+  height: 65px;
+}
+.memory {
+  padding: 12px 26px;
+  font-size: 12px;
+  color: #5e7264;
+}
+.memory ul {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.handoff-notice {
+  margin: 14px 20px;
+  padding: 12px;
+  background: #faf1df;
+  border: 1px solid #e9d9bb;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.supervision {
+  margin-top: 42px;
+}
+.supervision-grid {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 22px;
+}
+.supervision-grid nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.conversation-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  text-align: left;
+  background: white;
+  color: #23392f;
+  border-color: #d9e2d5;
+  padding: 16px;
+}
+.conversation-choice.selected {
+  background: #e5eddf;
+  border-color: #175a48;
+}
+.conversation-choice span {
+  font-size: 11px;
+}
+.conversation-choice small {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.supervision .chat-feed {
+  height: 400px;
+  margin-bottom: 22px;
+  border-radius: 10px;
+}
+.supervision pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.agent-traces {
+  margin-top: 20px;
+  font-size: 12px;
+}
+.agent-traces ol {
+  max-height: 230px;
+  overflow: auto;
+  line-height: 1.8;
+}
+@media (max-width: 760px) {
+  .chat-heading {
+    padding: 18px;
+  }
+  .chat-feed {
+    padding: 14px;
+    height: 420px;
+  }
+  .chat-message {
+    max-width: 95%;
+    padding: 12px;
+  }
+  .commerce .chat-composer {
+    padding: 14px;
+    gap: 8px;
+  }
+  .chat-composer button span {
+    display: none;
+  }
+  .supervision-grid {
+    grid-template-columns: 1fr;
+  }
+  .supervision-grid nav {
+    max-height: 230px;
+    overflow: auto;
+  }
+}

@@ -7,6 +7,8 @@ export const searchSchema = z.object({
   family: z.string().trim().max(80).optional(),
   color: z.string().trim().max(80).optional(),
   size: z.string().trim().max(30).optional(),
+  material: z.string().trim().max(80).optional(),
+  maxPriceCentimes: z.number().int().min(0).max(2_147_483_647).optional(),
   availableOnly: z.boolean().default(true),
   limit: z.number().int().min(1).max(30).default(12),
 });
@@ -44,18 +46,22 @@ export async function searchProducts(
     ) promo ON true
     WHERE (p.model ILIKE $2 OR p.family ILIKE $2 OR p.color ILIKE $2 OR p.ref ILIKE $2)
       AND ($3::text IS NULL OR lower(p.family) = lower($3))
-      AND ($4::text IS NULL OR lower(p.color) = lower($4))
+      AND ($4::text IS NULL OR p.color ILIKE $4)
       AND ($5::text IS NULL OR lower(p.size) = lower($5))
       AND (NOT $6::boolean OR p.stock > 0)
+      AND ($8::text IS NULL OR p.material ILIKE $8)
+      AND ($9::integer IS NULL OR coalesce(promo.price_centimes,p.price_centimes) <= $9)
     ORDER BY p.ref LIMIT $7`,
     [
       moroccoDate(now),
       pattern,
       data.family ?? null,
-      data.color ?? null,
+      data.color ? `%${data.color.replace(/[\\%_]/g, '\\$&')}%` : null,
       data.size ?? null,
       data.availableOnly,
       data.limit,
+      data.material ? `%${data.material.replace(/[\\%_]/g, '\\$&')}%` : null,
+      data.maxPriceCentimes ?? null,
     ],
   );
   // Never expose restock_days_internal to the customer-facing catalogue tool.

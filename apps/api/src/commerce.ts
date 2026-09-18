@@ -178,4 +178,5 @@ export async function registerCommerce(
       ).rows,
     };
   });
+  return { session, rateLimit };
 }
