@@ -631,7 +631,7 @@ summary:focus-visible {
 }
 .shop-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 350px;
+  grid-template-columns: 350px minmax(0, 1fr);
   gap: 26px;
   align-items: start;
 }
@@ -699,6 +699,12 @@ summary:focus-visible {
 .basket {
   position: sticky;
   top: 18px;
+  border-top: 4px solid #175a48;
+  box-shadow: 0 20px 45px -30px #23392f66;
+}
+.basket h2 {
+  display: flex;
+  align-items: center;
 }
 .count {
   display: inline-grid;
@@ -736,6 +742,14 @@ summary:focus-visible {
 .quote {
   margin-top: 24px;
   border-top: 2px solid #175a48;
+  background: #f4f8f1;
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+}
+.quote h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #175a48;
 }
 .quote p {
   font-size: 13px;
@@ -803,7 +817,7 @@ summary:focus-visible {
 }
 @media (max-width: 1100px) {
   .shop-layout {
-    grid-template-columns: minmax(0, 1fr) 310px;
+    grid-template-columns: 310px minmax(0, 1fr);
   }
   .product-grid {
     grid-template-columns: 1fr;
@@ -953,6 +967,13 @@ summary:focus-visible {
   border-top: 1px solid #dfe6d9;
   margin-top: 18px;
   min-width: min(320px, 100%);
+}
+.chat-quote-stale {
+  color: #9a6a2f;
+  background: #fdf3e4;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9em;
 }
 .chat-quote p {
   display: flex;

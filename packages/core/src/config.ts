@@ -33,6 +33,8 @@ const schema = z.object({
   EMBEDDING_DIMENSIONS: z.coerce.number().int().min(1).max(65536).default(512),
   EMBEDDING_URL: z.string().default(''),
   EMBEDDING_API_KEY: z.string().default(''),
+  GROQ_API_KEY: z.string().default(''),
+  GROQ_STT_MODEL: z.string().default('whisper-large-v3'),
 });
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {

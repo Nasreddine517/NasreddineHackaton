@@ -58,6 +58,7 @@ export function Chat({
     let active = true,
       socket: WebSocket | undefined,
       retry: ReturnType<typeof setTimeout> | undefined;
+
     const poll = setInterval(() => {
       if (!document.hidden && socket) void refresh();
     }, 15000);
@@ -210,6 +211,10 @@ export function Chat({
       setStage('');
     }
   }
+  // Un devis n'est valable que tant que le panier n'a pas bougé depuis : si le client
+  // continue à discuter avant de cliquer, seul le dernier récapitulatif reste confirmable.
+  const latestQuoteId = [...history.messages].reverse().find((m) => m.metadata.quote)?.metadata
+    .quote?.id;
   return (
     <section className="chat panel" aria-label="Conversation avec Kenza">
       <div className="chat-heading">
@@ -334,6 +339,11 @@ export function Chat({
                     <small>Aucun paiement encaissé. Récapitulatif valable dix minutes.</small>
                     {confirmed[m.metadata.quote.id] ? (
                       <p role="status">Commande confirmée : {confirmed[m.metadata.quote.id]}</p>
+                    ) : m.metadata.quote.id !== latestQuoteId ? (
+                      <p className="chat-quote-stale">
+                        Le panier a changé depuis ce récapitulatif : demandez à Kenza de
+                        récapituler à nouveau avant de confirmer.
+                      </p>
                     ) : (
                       <button disabled={busy} onClick={() => void confirm(m.metadata.quote!)}>
                         Confirmer cette commande · {money(m.metadata.quote.totalCentimes)}

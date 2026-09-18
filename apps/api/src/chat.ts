@@ -4,6 +4,7 @@ import type { registerCommerce } from './commerce.js';
 import crypto from 'node:crypto';
 import { toFile } from 'openai';
 import { readConfig } from '../../../packages/core/src/config.js';
+import { BusinessError } from '../../../packages/core/src/domain/pricing.js';
 import { createAzureClient } from '../../../packages/core/src/llm/clients.js';
 import {
   createConversationService,
@@ -62,21 +63,75 @@ export async function registerChat(
     const id = await auth.session(request, 'client');
     await auth.rateLimit(`rate:chat:${id}`, 30);
     const body = request.body as { audio?: string };
-    if (!body?.audio) throw new Error("Audio manquant");
-    
+    if (!body?.audio) throw new Error('Audio manquant');
+
     const config = readConfig();
-    const azureClient = createAzureClient(config);
-    const buffer = Buffer.from(body.audio, 'base64');
-    const file = await toFile(buffer, 'audio.webm');
-    
+    if (!config.GROQ_API_KEY) throw new Error("Le service vocal n'est pas configuré.");
+
     try {
-      const transcription = await azureClient.audio.transcriptions.create({
-        file,
-        model: 'whisper',
+      // Azure n'a aucun déploiement audio (Whisper/gpt-4o-audio) : on transcrit via
+      // l'API Whisper gratuite de Groq, compatible OpenAI, qui accepte le webm brut.
+      const buffer = Buffer.from(body.audio, 'base64');
+      // Un enregistrement trop court (clic accidentel) donne un flux quasi silencieux
+      // que Whisper "hallucine" en texte générique (ex: "Thank you for watching!").
+      if (buffer.length < 4000)
+        throw new BusinessError(
+          'AUDIO_TOO_SHORT',
+          "Message trop court : maintenez le bouton un peu plus longtemps en parlant.",
+        );
+      // Sans indication de langue, Whisper devine parfois une langue totalement
+      // différente sur un audio court/bruité (ex: portugais). On force la langue
+      // à partir de la préférence connue du client pour éviter ces erreurs.
+      const { rows } = await db.query<{ preferred_language: string | null }>(
+        'SELECT preferred_language FROM customers WHERE id=$1',
+        [id],
+      );
+      const whisperLanguage = rows[0]?.preferred_language === 'fr' ? 'fr' : 'ar';
+      const file = await toFile(buffer, 'audio.webm', { type: 'audio/webm' });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('model', config.GROQ_STT_MODEL);
+      form.append('response_format', 'verbose_json');
+      form.append('language', whisperLanguage);
+      // Aide le modèle à choisir le bon script (arabe/latin) pour le darija sans forcer une langue.
+      form.append(
+        'prompt',
+        "Conversation en français, arabe ou darija marocaine dans une boutique de vêtements.",
+      );
+      const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.GROQ_API_KEY}` },
+        body: form,
       });
-      if (!transcription.text) throw new Error("Échec de la transcription");
-      return service.send(id, { id: crypto.randomUUID(), message: transcription.text });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        request.log.error({ status: response.status, detail, bytes: buffer.length }, 'Groq rejected audio');
+        throw new Error(`Groq transcription failed: ${response.status}`);
+      }
+      const result = (await response.json()) as {
+        text?: string;
+        segments?: { no_speech_prob?: number; text?: string }[];
+      };
+      const text = result.text?.trim();
+      // Heuristique anti-hallucination : Whisper invente souvent des phrases plausibles
+      // ("Thank you for watching", "you", "Sous-titres...") quand il ne détecte pas de vraie parole.
+      const segments = result.segments ?? [];
+      const silent =
+        segments.length > 0 && segments.every((s) => (s.no_speech_prob ?? 0) > 0.6);
+      const knownHallucinations = [
+        /^(thank you( for watching)?!?|thanks for watching!?|you)$/i,
+        /sous-?titr/i,
+        /subtitle/i,
+        /amara\.org/i,
+      ];
+      if (!text || silent || knownHallucinations.some((re) => re.test(text)))
+        throw new BusinessError(
+          'AUDIO_NOT_UNDERSTOOD',
+          "Je n'ai pas bien capté votre message vocal. Pouvez-vous réessayer, en parlant un peu plus près du micro ?",
+        );
+      return service.send(id, { id: crypto.randomUUID(), message: text });
     } catch (err) {
+      if (err instanceof BusinessError) throw err;
       request.log.error(err, 'Audio transcription failed');
       throw new Error("Le service vocal n'est pas disponible pour le moment.");
     }

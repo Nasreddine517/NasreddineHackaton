@@ -286,16 +286,29 @@ export async function createConversationService(
     })
     .addNode('garde_fou_reponse', async (state) => {
       await event(state.context, 'garde_fou', 'audit_answer');
-      const safe = await models.audit(
-        JSON.stringify({
-          context: state.context,
-          plan: state.plan,
-          facts: state.facts,
-          answer: state.draft,
-        }),
-      );
+      const base = { context: state.context, plan: state.plan, facts: state.facts };
+      let draft = state.draft;
+      let safe = await models.audit(JSON.stringify({ ...base, answer: draft }));
+      let attempts = 0;
+      // La reponse initiale n'est pas toujours strictement fondee sur les faits : on retente
+      // jusqu'a deux fois avec une consigne explicite, plutot que d'infliger d'emblee le
+      // message generique au client des le premier rejet.
+      while (!safe && attempts < 2) {
+        attempts += 1;
+        await event(state.context, 'garde_fou', 'answer_retry');
+        draft = await models.respond(
+          JSON.stringify({
+            ...base,
+            guard: state.guard,
+            retryHint:
+              "La reponse precedente a ete rejetee car elle contenait un detail non fonde sur les faits (ex: qualificatif absolu, prix, stock ou promotion invente ou exagere). Reformule en restant STRICTEMENT dans les faits fournis, sans qualificatif absolu.",
+            previousAnswer: state.draft,
+          }),
+        );
+        safe = await models.audit(JSON.stringify({ ...base, answer: draft }));
+      }
       await event(state.context, 'garde_fou', safe ? 'answer_validated' : 'answer_replaced');
-      return { reply: safe ? state.draft : fallback(state.plan?.language) };
+      return { reply: safe ? draft : fallback(state.plan?.language) };
     })
     .addEdge(START, 'conversation')
     .addEdge('conversation', 'garde_fou_action')

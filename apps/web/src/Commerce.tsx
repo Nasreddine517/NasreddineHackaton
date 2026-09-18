@@ -260,81 +260,6 @@ export function Commerce({ mode, onBack }: { mode: 'client' | 'merchant'; onBack
               />
             )}
             <div className="shop-layout">
-              <section>
-                <form
-                  className="search-row"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void action(async () =>
-                      setProducts(
-                        (
-                          await api<{ products: Product[] }>(
-                            `/catalogue?q=${encodeURIComponent(query)}`,
-                          )
-                        ).products,
-                      ),
-                    );
-                  }}
-                >
-                  <label className="grow">
-                    Rechercher un article
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Robe, bleu, REF-0001…"
-                      maxLength={120}
-                    />
-                  </label>
-                  <button disabled={busy}>Rechercher</button>
-                </form>
-                <p className="muted">
-                  {products.length} articles affichés · Affinez la recherche pour trouver votre
-                  modèle.
-                </p>
-                <div className="product-grid">
-                  {products.map((p) => (
-                    <article className="panel product" key={p.ref}>
-                      <div className="product-tag">{p.family}</div>
-                      <h2>{p.model}</h2>
-                      <p>
-                        {p.color} · Taille {p.size}
-                      </p>
-                      <small>
-                        {p.material} · {p.ref}
-                      </small>
-                      <div className="product-price">
-                        <strong>{money(p.promotion?.priceCentimes ?? p.priceCentimes)}</strong>
-                        {p.promotion && (
-                          <>
-                            <del>{money(p.priceCentimes)}</del>
-                            <span className="promo">Promotion</span>
-                          </>
-                        )}
-                      </div>
-                      <p className="muted">{p.stock} en stock</p>
-                      <button
-                        disabled={
-                          !profile ||
-                          busy ||
-                          (items.find((i) => i.ref === p.ref)?.quantity ?? 0) >=
-                            Math.min(p.stock, 20)
-                        }
-                        onClick={() =>
-                          void editItem(
-                            p.ref,
-                            (items.find((i) => i.ref === p.ref)?.quantity ?? 0) + 1,
-                          )
-                        }
-                      >
-                        Ajouter au panier
-                      </button>
-                    </article>
-                  ))}
-                </div>
-                {!products.length && (
-                  <p className="panel">Aucun article disponible ne correspond à cette recherche.</p>
-                )}
-              </section>
               <aside className="panel basket">
                 <h2>
                   Votre sélection{' '}
@@ -519,6 +444,81 @@ export function Commerce({ mode, onBack }: { mode: 'client' | 'merchant'; onBack
                   </section>
                 )}
               </aside>
+              <section>
+                <form
+                  className="search-row"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void action(async () =>
+                      setProducts(
+                        (
+                          await api<{ products: Product[] }>(
+                            `/catalogue?q=${encodeURIComponent(query)}`,
+                          )
+                        ).products,
+                      ),
+                    );
+                  }}
+                >
+                  <label className="grow">
+                    Rechercher un article
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Robe, bleu, REF-0001…"
+                      maxLength={120}
+                    />
+                  </label>
+                  <button disabled={busy}>Rechercher</button>
+                </form>
+                <p className="muted">
+                  {products.length} articles affichés · Affinez la recherche pour trouver votre
+                  modèle.
+                </p>
+                <div className="product-grid">
+                  {products.map((p) => (
+                    <article className="panel product" key={p.ref}>
+                      <div className="product-tag">{p.family}</div>
+                      <h2>{p.model}</h2>
+                      <p>
+                        {p.color} · Taille {p.size}
+                      </p>
+                      <small>
+                        {p.material} · {p.ref}
+                      </small>
+                      <div className="product-price">
+                        <strong>{money(p.promotion?.priceCentimes ?? p.priceCentimes)}</strong>
+                        {p.promotion && (
+                          <>
+                            <del>{money(p.priceCentimes)}</del>
+                            <span className="promo">Promotion</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="muted">{p.stock} en stock</p>
+                      <button
+                        disabled={
+                          !profile ||
+                          busy ||
+                          (items.find((i) => i.ref === p.ref)?.quantity ?? 0) >=
+                            Math.min(p.stock, 20)
+                        }
+                        onClick={() =>
+                          void editItem(
+                            p.ref,
+                            (items.find((i) => i.ref === p.ref)?.quantity ?? 0) + 1,
+                          )
+                        }
+                      >
+                        Ajouter au panier
+                      </button>
+                    </article>
+                  ))}
+                </div>
+                {!products.length && (
+                  <p className="panel">Aucun article disponible ne correspond à cette recherche.</p>
+                )}
+              </section>
             </div>
             {profile && (
               <section className="order-section">
