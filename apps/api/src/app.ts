@@ -1,10 +1,17 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
+import { ZodError } from 'zod';
+import { BusinessError } from '../../../packages/core/src/domain/pricing.js';
+import { registerCommerce, type MerchantConfig } from './commerce.js';
 import type { createConnections } from '../../../packages/core/src/connections.js';
 
 type Dependencies = ReturnType<typeof createConnections>;
 
-export async function createApp(connections: Dependencies, logLevel = 'info') {
+export async function createApp(
+  connections: Dependencies,
+  logLevel = 'info',
+  merchant: MerchantConfig = { MERCHANT_EMAIL: '', MERCHANT_PASSWORD: '', COOKIE_SECURE: false },
+) {
   const app = Fastify({
     logger: {
       level: logLevel,
@@ -14,6 +21,7 @@ export async function createApp(connections: Dependencies, logLevel = 'info') {
     requestTimeout: 30000,
   });
   await app.register(websocket);
+  await registerCommerce(app, connections, merchant);
   app.get('/api/health/live', async () => ({ status: 'ok', service: 'kenza-api' }));
   app.get('/api/health/ready', async (_request, reply) => {
     const [db, redis, heartbeat] = await Promise.allSettled([
@@ -34,9 +42,10 @@ export async function createApp(connections: Dependencies, logLevel = 'info') {
     };
   });
   app.get('/api/system', async () => ({
-    phase: 'foundation',
+    phase: 'checkout',
     chatEnabled: false,
-    merchantEnabled: false,
+    merchantEnabled: Boolean(merchant.MERCHANT_EMAIL && merchant.MERCHANT_PASSWORD),
+    checkoutEnabled: true,
     followupEnabled: false,
   }));
   app.get('/api/events', { websocket: true }, (socket) => {
@@ -45,12 +54,21 @@ export async function createApp(connections: Dependencies, logLevel = 'info') {
       socket.send(
         JSON.stringify({
           type: 'unavailable',
-          message: 'Le parcours conversationnel sera disponible au lot 3.',
+          message: 'Le parcours conversationnel sera disponible au lot 4.',
         }),
       );
     });
   });
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof BusinessError)
+      return reply.code(409).send({ error: error.code, message: error.message });
+    if (error instanceof ZodError)
+      return reply
+        .code(400)
+        .send({
+          error: 'INVALID_REQUEST',
+          message: 'Vérifiez les champs saisis et le mode de paiement.',
+        });
     const failure =
       error instanceof Error
         ? (error as Error & { code?: string; statusCode?: number })

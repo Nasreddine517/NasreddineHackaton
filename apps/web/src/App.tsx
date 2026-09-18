@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Commerce } from './Commerce';
 import {
   ArrowUpRight,
   AudioLines,
@@ -13,6 +14,7 @@ import {
 type Health = { status: string; services: { postgres: boolean; redis: boolean; worker: boolean } };
 
 export function App() {
+  const [space, setSpace] = useState<'client' | 'merchant' | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [checked, setChecked] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -40,6 +42,7 @@ export function App() {
     };
   }, []);
 
+  if (space) return <Commerce key={space} mode={space} onBack={() => setSpace(null)} />;
   return (
     <div className="page">
       <header className="header">
@@ -124,9 +127,9 @@ export function App() {
               <h2>La boutique, en conversation</h2>
               <p>Demander un conseil, trouver un article, préparer sa commande.</p>
             </div>
-            <span className="soon">
-              Lot 3 <ArrowUpRight size={16} />
-            </span>
+            <button onClick={() => setSpace('client')}>
+              Ouvrir la boutique <ArrowUpRight size={16} />
+            </button>
           </article>
           <article className="space-card">
             <div className="space-icon">
@@ -137,9 +140,9 @@ export function App() {
               <h2>Une vue sur chaque échange</h2>
               <p>Suivre les commandes et intervenir au moment où cela compte.</p>
             </div>
-            <span className="soon">
-              Lots 3–5 <ArrowUpRight size={16} />
-            </span>
+            <button onClick={() => setSpace('merchant')}>
+              Espace commerçant <ArrowUpRight size={16} />
+            </button>
           </article>
         </section>
         <section className="foundation" aria-labelledby="foundation-title">
@@ -147,8 +150,8 @@ export function App() {
             <span className="overline">AVANCEMENT DU PROJET</span>
             <h2 id="foundation-title">Le socle prend forme.</h2>
             <p>
-              Cette première version vérifie les services. Les parcours d’achat et de supervision
-              seront ouverts dans les prochains lots.
+              Le catalogue, le panier et la confirmation de commande sont disponibles. La
+              conversation avec Kenza et les relances arrivent dans les prochains lots.
             </p>
           </div>
           <ul className="service-list" aria-live="polite">

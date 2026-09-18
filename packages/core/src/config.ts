@@ -10,6 +10,12 @@ const schema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   API_HOST: z.enum(['127.0.0.1', '0.0.0.0']).default('127.0.0.1'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  MERCHANT_EMAIL: z.union([z.literal(''), z.string().email()]).default(''),
+  MERCHANT_PASSWORD: z.union([z.literal(''), z.string().min(12).max(256)]).default(''),
+  COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   FOLLOWUP_DELAY_MS: z.coerce.number().int().positive().default(1_800_000),
   DEMO_MODE: z
     .enum(['true', 'false'])
@@ -38,6 +44,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     );
   }
   const config = parsed.data;
+  if (Boolean(config.MERCHANT_EMAIL) !== Boolean(config.MERCHANT_PASSWORD))
+    throw new Error('MERCHANT_EMAIL and MERCHANT_PASSWORD must be configured together.');
   if (!config.DEMO_MODE && config.FOLLOWUP_DELAY_MS !== 1_800_000) {
     throw new Error('FOLLOWUP_DELAY_MS must be 1800000 outside DEMO_MODE.');
   }

@@ -17,7 +17,8 @@
     "db:migrate": "tsx packages/core/src/db/cli.ts migrate",
     "db:seed": "tsx packages/core/src/db/cli.ts seed",
     "check": "pnpm typecheck && pnpm test",
-    "models:check": "tsx scripts/check-models.ts"
+    "models:check": "tsx scripts/check-models.ts",
+    "merchant:setup": "tsx scripts/setup-merchant.ts"
   },
   "dependencies": {
     "@fastify/websocket": "11.2.0",

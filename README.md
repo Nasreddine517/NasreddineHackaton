@@ -6,7 +6,7 @@ Kenza est un projet d’agent commercial pour les boutiques qui vendent par mess
 
 Projet réalisé dans le cadre du hackathon **ESISA × Numeos Technology**, sujet 02, du 17 au 19 septembre 2026.
 
-> **État du projet : socle et données en cours de validation.** La structure React/Fastify, le WebSocket, les cinq services Docker, les migrations et les premiers outils métier sont implémentés. Le chat commercial, les agents et la supervision ne sont pas encore disponibles. Le [plan par lots](Docs/PLAN_DEVELOPPEMENT.md) et le [journal de reprise](Docs/ETAT_DEVELOPPEMENT.md) distinguent ce qui est vérifié de ce qui reste à faire.
+> **État du projet : parcours d’achat manuel opérationnel.** Catalogue, panier persistant, confirmation transactionnelle et commandes côté commerçant sont implémentés. Les cinq services Docker fonctionnent ; 22 tests passent, y compris les achats concurrents sur PostgreSQL. Les agents conversationnels, la mémoire, les escalades, les relances et le multimodal restent à réaliser. Le [plan par lots](Docs/PLAN_DEVELOPPEMENT.md) et le [journal de reprise](Docs/ETAT_DEVELOPPEMENT.md) détaillent les validations et les prochaines étapes.
 
 ## Le besoin
 
@@ -68,11 +68,11 @@ Lors d’un prochain échange, le contexte du client permet de reprendre la conv
 
 ## Les quatre extensions retenues
 
-| Fonctionnalité | Comportement attendu |
-| --- | --- |
-| **Notes vocales** | Transcrire un vocal, comprendre la demande et utiliser son contenu pour poursuivre la vente. Faire préciser les informations ambiguës. |
-| **Recherche par image** | Rechercher des produits du catalogue à partir d’une photo et distinguer une correspondance probable d’un article simplement similaire. |
-| **Négociation encadrée** | Proposer une remise autorisée, appliquer un plancher contrôlé par le code et transférer les demandes d’exception. |
+| Fonctionnalité               | Comportement attendu                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Notes vocales**            | Transcrire un vocal, comprendre la demande et utiliser son contenu pour poursuivre la vente. Faire préciser les informations ambiguës.     |
+| **Recherche par image**      | Rechercher des produits du catalogue à partir d’une photo et distinguer une correspondance probable d’un article simplement similaire.     |
+| **Négociation encadrée**     | Proposer une remise autorisée, appliquer un plancher contrôlé par le code et transférer les demandes d’exception.                          |
 | **A/B testing des relances** | Répartir les clients éligibles entre deux variantes, suivre leurs résultats et afficher les effectifs ainsi que les conversions observées. |
 
 Les capacités audio et image des endpoints fournis restent à vérifier. Le périmètre visuel retenu est l’extraction des caractéristiques d’une photo pour proposer des produits similaires du catalogue, sans identification exacte ni photos de référence obligatoires. La réponse vocale de l’agent ne fait pas partie du périmètre actuel.
@@ -81,18 +81,18 @@ Les capacités audio et image des endpoints fournis restent à vérifier. Le pé
 
 Les contrôles critiques seront appliqués dans les outils métier, au moment de calculer un prix ou de créer une commande.
 
-| Situation | Règle |
-| --- | --- |
-| Prix et promotions | Promotion valide et applicable prioritaire, sans cumul avec une remise supplémentaire. |
-| Demande de remise | Hors promotion, proposition possible face à une hésitation du client, dans la limite de 10 % sans validation humaine. |
-| Rupture de stock | Annoncer l’indisponibilité et rechercher une alternative réellement disponible. |
-| Réassort | Ne jamais promettre une date à partir du délai indicatif du catalogue. |
-| Livraison | Utiliser exclusivement les frais et délais de la grille fournie. |
-| Ville absente de la grille | Transférer au commerçant, sans estimer de tarif ni de délai. |
-| Paiement à la livraison | Le proposer uniquement dans les villes où il est autorisé. |
-| Échange ou avoir | Informer sur le délai de sept jours, sous réserve d’un article non porté avec son étiquette. |
-| Remboursement en espèces | Transférer au commerçant. |
-| Facturation société, réclamation, litige ou demande hors catalogue | Transmettre la demande avec le contexte complet. |
+| Situation                                                          | Règle                                                                                                                 |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Prix et promotions                                                 | Promotion valide et applicable prioritaire, sans cumul avec une remise supplémentaire.                                |
+| Demande de remise                                                  | Hors promotion, proposition possible face à une hésitation du client, dans la limite de 10 % sans validation humaine. |
+| Rupture de stock                                                   | Annoncer l’indisponibilité et rechercher une alternative réellement disponible.                                       |
+| Réassort                                                           | Ne jamais promettre une date à partir du délai indicatif du catalogue.                                                |
+| Livraison                                                          | Utiliser exclusivement les frais et délais de la grille fournie.                                                      |
+| Ville absente de la grille                                         | Transférer au commerçant, sans estimer de tarif ni de délai.                                                          |
+| Paiement à la livraison                                            | Le proposer uniquement dans les villes où il est autorisé.                                                            |
+| Échange ou avoir                                                   | Informer sur le délai de sept jours, sous réserve d’un article non porté avec son étiquette.                          |
+| Remboursement en espèces                                           | Transférer au commerçant.                                                                                             |
+| Facturation société, réclamation, litige ou demande hors catalogue | Transmettre la demande avec le contexte complet.                                                                      |
 
 Une panne d’outil ne doit jamais être présentée comme une action réussie. Une commande ne sera annoncée comme créée qu’après confirmation de son enregistrement.
 
@@ -100,16 +100,16 @@ Une panne d’outil ne doit jamais être présentée comme une action réussie. 
 
 L’application suivra les technologies recommandées dans le cahier des charges. Elle sera développée à partir de zéro, aucun projet d’amorçage n’étant disponible à ce stade.
 
-| Couche | Technologie | Responsabilité |
-| --- | --- | --- |
-| Interface | React 18, TypeScript, Vite | Chat client et tableau de bord commerçant |
-| API | Node.js 20, TypeScript, Fastify | WebSocket, endpoints et accès aux fonctions métier |
-| Orchestration | LangGraph | Agents distincts, transitions d’état et reprises |
-| Persistance | PostgreSQL 16 | Données métier et checkpoints de la mémoire conversationnelle |
-| État temporaire et files | Redis 7 | Contexte courant et stockage des files BullMQ |
-| Tâches de fond | BullMQ et worker Node.js | Exécution des relances planifiées |
-| Modèles | API Numeos compatible OpenAI | Accès aux modèles fournis, configuré côté serveur |
-| Exécution | Docker Compose | Lancement des cinq services |
+| Couche                   | Technologie                     | Responsabilité                                                |
+| ------------------------ | ------------------------------- | ------------------------------------------------------------- |
+| Interface                | React 18, TypeScript, Vite      | Chat client et tableau de bord commerçant                     |
+| API                      | Node.js 20, TypeScript, Fastify | WebSocket, endpoints et accès aux fonctions métier            |
+| Orchestration            | LangGraph                       | Agents distincts, transitions d’état et reprises              |
+| Persistance              | PostgreSQL 16                   | Données métier et checkpoints de la mémoire conversationnelle |
+| État temporaire et files | Redis 7                         | Contexte courant et stockage des files BullMQ                 |
+| Tâches de fond           | BullMQ et worker Node.js        | Exécution des relances planifiées                             |
+| Modèles                  | API Numeos compatible OpenAI    | Accès aux modèles fournis, configuré côté serveur             |
+| Exécution                | Docker Compose                  | Lancement des cinq services                                   |
 
 ```mermaid
 flowchart TD
@@ -130,13 +130,13 @@ flowchart TD
 
 ### Responsabilités des agents
 
-| Agent | Responsabilité |
-| --- | --- |
-| **Conversation** | Comprendre le besoin, suivre le panier et conserver le contexte du client. |
-| **Catalogue** | Rechercher les produits et utiliser les outils de stock, livraison et commande. |
-| **Relance** | Décider qui relancer, quand et avec quel message. |
-| **Garde-fou** | Vérifier les données et les autorisations avant les réponses ou actions sensibles. |
-| **Escalade** | Identifier les situations à transférer et préparer le dossier pour le commerçant. |
+| Agent            | Responsabilité                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| **Conversation** | Comprendre le besoin, suivre le panier et conserver le contexte du client.         |
+| **Catalogue**    | Rechercher les produits et utiliser les outils de stock, livraison et commande.    |
+| **Relance**      | Décider qui relancer, quand et avec quel message.                                  |
+| **Garde-fou**    | Vérifier les données et les autorisations avant les réponses ou actions sensibles. |
+| **Escalade**     | Identifier les situations à transférer et préparer le dossier pour le commerçant.  |
 
 Le graphe devra rendre leurs interventions et leurs transitions explicites. PostgreSQL conservera la mémoire durable ; Redis portera l’état temporaire et les tâches planifiées. Les relances seront exécutées par le worker, indépendamment du processus de l’API.
 
@@ -144,35 +144,45 @@ Le graphe devra rendre leurs interventions et leurs transitions explicites. Post
 
 Le jeu de données fourni par les organisateurs décrit une boutique fictive.
 
-| Source | Contenu |
-| --- | --- |
-| `catalogue.csv` | 80 références avec caractéristiques, prix et stock |
-| `clients.csv` | 120 clients |
-| `commandes.csv` | 320 commandes historiques |
-| `commandes-lignes.csv` | 449 lignes de commande |
-| `livraison.csv` | 12 entrées de livraison par ville |
-| `promotions.csv` | 12 promotions datées |
-| `conversations.jsonl` | Corpus annoncé de 40 conversations en français, arabe et darija |
-| `politique-commerciale.md` | Règles de prix, de stock et d’escalade |
-| `faq-boutique.md` | Informations pratiques de la boutique |
+| Source                     | Contenu                                                         |
+| -------------------------- | --------------------------------------------------------------- |
+| `catalogue.csv`            | 80 références avec caractéristiques, prix et stock              |
+| `clients.csv`              | 120 clients                                                     |
+| `commandes.csv`            | 320 commandes historiques                                       |
+| `commandes-lignes.csv`     | 449 lignes de commande                                          |
+| `livraison.csv`            | 12 entrées de livraison par ville                               |
+| `promotions.csv`           | 12 promotions datées                                            |
+| `conversations.jsonl`      | Corpus annoncé de 40 conversations en français, arabe et darija |
+| `politique-commerciale.md` | Règles de prix, de stock et d’escalade                          |
+| `faq-boutique.md`          | Informations pratiques de la boutique                           |
 
 Le cahier des charges est disponible localement dans `Docs/` et l’archive d’origine dans `Data/`. Les fichiers nécessaires à l’import sont extraits dans `Data/seed/`, sans modification de leur contenu. Les règles validées dans le plan de développement remplacent explicitement la mention de traitement différé des messages nocturnes présente dans la FAQ source.
 
 ## Installation et configuration
 
-Le socle est compilé et les cinq services Docker démarrent. L’interface d’accueil, l’API, PostgreSQL, Redis et le signal de santé du worker sont vérifiés. Il ne permet pas encore de passer une commande.
+Le catalogue, les profils fictifs, le panier persistant et la confirmation de commande sont utilisables. Le commerçant dispose d’une connexion et d’une liste des commandes Kenza. La conversation autonome, les relances et les entrées multimodales restent en développement.
 
 ### Avec Docker
 
 Prérequis : Docker Desktop démarré avec le moteur Linux et Docker Compose.
 
-1. Copier `.env.example` vers `.env` et adapter les paramètres locaux.
+1. Copier `.env.example` vers `.env` et adapter les paramètres locaux. Définir `MERCHANT_EMAIL` et `MERCHANT_PASSWORD` (12 caractères minimum), ou utiliser `pnpm merchant:setup` après installation des dépendances pour générer un compte local.
 2. Lancer `docker compose up --build`.
 3. Ouvrir `http://localhost:8080`.
 
 Les services prévus sont `web`, `api`, `postgres`, `redis` et `worker`. Les migrations et le premier import s’exécutent au démarrage de l’API. Un import déjà effectué ne remet pas le stock à zéro. Les données PostgreSQL et Redis sont conservées dans des volumes.
 
 Les ports sont liés à l’interface locale. PostgreSQL est accessible depuis l’hôte sur le port `15432` (configurable avec `POSTGRES_HOST_PORT`) et reste sur `5432` dans le réseau Docker. Les identifiants PostgreSQL d’exemple sont destinés au développement local. Les capacités conversationnelles ne sont pas activées par la seule présence d’une clé LLM.
+
+### Essayer le parcours de commande
+
+Dans « Ouvrir la boutique », sélectionner un profil fictif ou en créer un. Chercher un article, l’ajouter au panier, choisir la ville, la réception et le paiement prévu, puis cliquer sur « Vérifier le total ». Le récapitulatif applique les promotions et les frais réels. La commande est enregistrée uniquement après « Confirmer ma commande ».
+
+Le récapitulatif expire après dix minutes. Si le panier ou les conditions tarifaires changent, une nouvelle validation est demandée. Le stock est décrémenté dans la même transaction que la commande ; une confirmation répétée ne crée pas de doublon. Les articles ajoutés au panier ne sont pas réservés.
+
+« Espace commerçant » utilise les identifiants de `.env`. Sans ces identifiants, l’accès reste fermé. Les sessions sont stockées dans Redis pour huit heures, avec cookies HttpOnly/SameSite, protection des écritures contre les requêtes intersites, limitation des tentatives de connexion et révocation à la déconnexion. Activer `COOKIE_SECURE=true` en cas d’exposition sous HTTPS. Les profils clients du simulateur restent volontairement partagés : ils ne constituent pas une authentification de clients réels.
+
+Le paiement sélectionné exprime un mode de règlement prévu. Ce prototype n’encaisse rien, ne génère aucun lien bancaire et ne marque aucune commande comme payée. Les commandes historiques sont exclues de la liste commerçant actuelle.
 
 ### Développement local
 
@@ -188,13 +198,15 @@ Lancer `pnpm dev:api` et `pnpm dev:web` dans deux terminaux ; l’interface se t
 
 Les tests SQL embarqués utilisent PGlite uniquement comme outil de test. L’application reste conçue pour PostgreSQL 16. Ces tests ne remplacent pas les vérifications réseau, de concurrence et de redémarrage sur les vrais services Docker.
 
+Un test de concurrence PostgreSQL est activé lorsque `TEST_DATABASE_URL` est défini : `node --import tsx --test tests/checkout.test.ts`. Il crée un schéma isolé, y importe le jeu de données, vérifie l’achat concurrent du dernier article et quatre confirmations simultanées, puis supprime uniquement ce schéma de test. Le stock de la boutique est préservé. Ces scénarios ont été exécutés avec succès sur PostgreSQL 16 Docker.
+
 Les accès fournis utilisent deux configurations distinctes :
 
-| Accès | Variables |
-| --- | --- |
-| GPT-5.5, endpoint compatible OpenAI v1 | `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL` |
-| GPT-4.1, déploiement Azure | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_MAX_TOKENS` |
-| Embeddings | `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` ; endpoint et clé principaux par défaut |
+| Accès                                  | Variables                                                                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| GPT-5.5, endpoint compatible OpenAI v1 | `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL`                                                                                                  |
+| GPT-4.1, déploiement Azure             | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_MAX_TOKENS` |
+| Embeddings                             | `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` ; endpoint et clé principaux par défaut                                                      |
 
 La version Azure fournie est `2024-12-01-preview`, avec une limite configurée à `16384` tokens. Ce plafond n’est pas une consommation imposée à chaque appel. Le modèle d’embeddings fourni est `embedder-small-3`, avec `512` dimensions. Des champs `EMBEDDING_URL` et `EMBEDDING_API_KEY` existent pour un éventuel accès distinct.
 

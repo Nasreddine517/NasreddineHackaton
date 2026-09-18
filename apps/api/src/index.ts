@@ -3,7 +3,7 @@ import { createConnections } from '../../../packages/core/src/connections.js';
 import { createApp } from './app.js';
 
 const config = readConfig();
-const app = await createApp(createConnections(config), config.LOG_LEVEL);
+const app = await createApp(createConnections(config), config.LOG_LEVEL, config);
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void app.close().then(() => process.exit(0));
