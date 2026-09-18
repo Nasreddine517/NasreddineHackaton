@@ -1,18 +1,18 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import type { createConnections } from '../../../packages/core/src/connections.js';
 import type { registerCommerce } from './commerce.js';
 import {
   createConversationService,
-  conversationHistory,
   withConversationLock,
 } from '../../../packages/core/src/agents/conversation.js';
+import { registerSupervision } from './supervision.js';
 import type { AgentModels } from '../../../packages/core/src/agents/models.js';
+import { FOLLOWUP_CHANNEL } from '../../../packages/core/src/domain/followups.js';
 
 type Socket = { readyState: number; send(data: string): void; close(): void };
 export async function registerChat(
   app: FastifyInstance,
-  { db }: ReturnType<typeof createConnections>,
+  { db, redis }: ReturnType<typeof createConnections>,
   auth: Awaited<ReturnType<typeof registerCommerce>>,
   models: AgentModels,
 ) {
@@ -23,6 +23,28 @@ export async function registerChat(
     }
   }
   const service = await createConversationService(db, models, notify);
+  const subscriber = redis.duplicate();
+  subscriber.on('error', () => {});
+  subscriber.on('message', (_channel, message) => {
+    try {
+      const value = JSON.parse(message);
+      if (typeof value.customerId === 'string')
+        notify(value.customerId, { type: 'conversation.updated' });
+    } catch {}
+  });
+  await subscriber.subscribe(FOLLOWUP_CHANNEL);
+  app.post('/api/client/followups/refuse', async (request) => {
+    const id = await auth.session(request, 'client');
+    await withConversationLock(db, id, async (connection) => {
+      await connection.query(
+        `INSERT INTO conversations(customer_id,followup_refused) VALUES ($1,true)
+        ON CONFLICT(customer_id) DO UPDATE SET followup_refused=true`,
+        [id],
+      );
+    });
+    notify(id, { type: 'conversation.updated' });
+    return { refused: true };
+  });
   app.get('/api/client/conversation', async (request) =>
     service.history(await auth.session(request, 'client')),
   );
@@ -76,83 +98,10 @@ export async function registerChat(
     },
   );
   app.addHook('onClose', async () => {
+    subscriber.disconnect();
     for (const group of sockets.values()) for (const socket of group) socket.close();
   });
 
-  app.get('/api/merchant/conversations', async (request) => {
-    await auth.session(request, 'merchant');
-    return {
-      conversations: (
-        await db.query(`SELECT c.customer_id,c.mode,c.updated_at,p.name,
-      (SELECT content FROM chat_messages m WHERE m.customer_id=c.customer_id ORDER BY id DESC LIMIT 1) AS last_message,
-      (SELECT count(*)::int FROM escalations e WHERE e.customer_id=c.customer_id AND status='open') AS open_escalations
-      FROM conversations c JOIN customers p ON p.id=c.customer_id ORDER BY c.updated_at DESC LIMIT 100`)
-      ).rows,
-    };
-  });
-  app.get('/api/merchant/conversations/:id', async (request) => {
-    await auth.session(request, 'merchant');
-    const { id } = z.object({ id: z.string().max(80) }).parse(request.params);
-    return {
-      ...(await conversationHistory(db, id)),
-      events: (
-        await db.query(
-          'SELECT agent,action,details,created_at FROM agent_events WHERE customer_id=$1 ORDER BY id DESC LIMIT 100',
-          [id],
-        )
-      ).rows,
-      escalations: (
-        await db.query(
-          'SELECT id,reason,status,context,created_at FROM escalations WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 20',
-          [id],
-        )
-      ).rows,
-    };
-  });
-  app.post('/api/merchant/conversations/:id/control', async (request) => {
-    await auth.session(request, 'merchant');
-    const { id } = z.object({ id: z.string().max(80) }).parse(request.params);
-    const { mode } = z
-      .object({ mode: z.enum(['auto', 'human']) })
-      .strict()
-      .parse(request.body);
-    return withConversationLock(db, id, async () => {
-      await db.query('UPDATE conversations SET mode=$2,updated_at=now() WHERE customer_id=$1', [
-        id,
-        mode,
-      ]);
-      if (mode === 'auto')
-        await db.query(
-          "UPDATE escalations SET status='resolved' WHERE customer_id=$1 AND status='open'",
-          [id],
-        );
-      await db.query(
-        "INSERT INTO agent_events(customer_id,agent,action,details) VALUES ($1,'merchant','mode_changed',$2)",
-        [id, JSON.stringify({ mode })],
-      );
-      notify(id, { type: 'conversation.updated' });
-      return { mode };
-    });
-  });
-  app.post('/api/merchant/conversations/:id/messages', async (request) => {
-    await auth.session(request, 'merchant');
-    const { id } = z.object({ id: z.string().max(80) }).parse(request.params);
-    const { message } = z
-      .object({ message: z.string().trim().min(1).max(2000) })
-      .strict()
-      .parse(request.body);
-    return withConversationLock(db, id, async () => {
-      await db.query(
-        "UPDATE conversations SET mode='human',updated_at=now() WHERE customer_id=$1",
-        [id],
-      );
-      await db.query(
-        "INSERT INTO chat_messages(customer_id,role,content) VALUES ($1,'merchant',$2)",
-        [id, message],
-      );
-      notify(id, { type: 'conversation.updated' });
-      return conversationHistory(db, id);
-    });
-  });
+  await registerSupervision(app, db, auth, notify);
   return service;
 }

@@ -83,6 +83,7 @@ export async function conversationHistory(db: DB, customerId: string) {
   ]);
   return {
     mode: conversation.rows[0]?.mode ?? 'auto',
+    followupRefused: conversation.rows[0]?.followup_refused ?? false,
     messages: messages.rows,
     memory: memory.rows,
   };
@@ -143,7 +144,10 @@ export async function createConversationService(
   const graph = new StateGraph(State)
     .addNode('conversation', async (state) => {
       await event(state.context, 'conversation', 'understand');
-      return { plan: await models.plan(JSON.stringify(state.context)) };
+      const plan = await models.plan(JSON.stringify(state.context));
+      if (plan.refuseFollowup)
+        await db.query('UPDATE conversations SET followup_refused=true WHERE customer_id=$1',[state.context.customerId]);
+      return { plan };
     })
     .addNode('garde_fou_action', async (state) => {
       await event(state.context, 'garde_fou', 'authorize');

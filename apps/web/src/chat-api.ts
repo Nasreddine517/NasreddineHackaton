@@ -13,7 +13,9 @@ export async function chatApi<T>(path: string, body?: unknown): Promise<T> {
   if (!response.ok)
     throw new Error(
       response.status === 401
-        ? 'Votre session a expiré. Sélectionnez à nouveau votre profil.'
+        ? path.startsWith('/merchant')
+          ? 'Votre session commerçant a expiré. Reconnectez-vous.'
+          : 'Votre session a expiré. Sélectionnez à nouveau votre profil.'
         : data.message || 'Le service est momentanément indisponible.',
     );
   return data as T;

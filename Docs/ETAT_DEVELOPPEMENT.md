@@ -1,72 +1,75 @@
 # État de développement — Kenza
 
-Dernière mise à jour : 18 septembre 2026. Lire ce journal avec `PASSATION_CODEX.md` et `PLAN_DEVELOPPEMENT.md`, puis vérifier l’état Git réel.
+Mise à jour : 18 septembre 2026, reprise après le commit `a30b1db` sur `master`.
+Ce journal remplace l’ancien état qui présentait encore les agents comme absents. Lire également `PASSATION_CODEX.md` pour les décisions métier et `PLAN_DEVELOPPEMENT.md` pour le périmètre.
 
-## Avancement
+## Dernier jalon : supervision commerçant
 
-| Lot                           | État réel                                                                                                                                                                                                                         |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 — Socle                     | Implémenté ; compilation Node 20 dans Docker, cinq services démarrés, santé API et WebSocket vérifiés.                                                                                                                            |
-| 2 — Données et métier         | Import, schéma, recherche catalogue, prix et livraison implémentés ; tests embarqués réussis et import/réimport vérifiés sur PostgreSQL 16 Docker. Les tests métier complets en concurrence restent à ajouter avec les commandes. |
-| 3 — Vente complète            | Parcours d’achat manuel implémenté et testé : profils fictifs, panier persistant, devis, confirmation atomique et liste commerçant protégée. Le chat métier reste à brancher avec les agents du lot 4.                            |
-| 4 — Agents et mémoire         | Clients LLM configurés et premiers appels texte réels validés. Orchestration et mémoire agentique à réaliser.                                                                                                                     |
-| 5 — Supervision               | Connexion, sessions et liste des commandes Kenza implémentées en avance. Escalade, reprise humaine, conversations et indicateurs restent à réaliser.                                                                              |
-| 6 — Relances et A/B           | À réaliser. Le worker actuel ne fait qu’émettre un signal de santé.                                                                                                                                                               |
-| 7 — Multimodal et négociation | À réaliser. Le plafond arithmétique est testé, pas encore la décision commerciale autonome.                                                                                                                                       |
-| 8 — Livraison                 | À réaliser.                                                                                                                                                                                                                       |
+- Le commit `a30b1db` contient le chat, les agents Conversation/Catalogue/Garde-fou/Escalade, la mémoire et le checkpointer PostgreSQL. Il comporte déjà la reprise humaine et la suspension du dialogue automatique.
+- Cette reprise ajoute le tableau de bord avec conversations, commandes confirmées, montant des commandes, conversion après échange et transferts ouverts. Les 320 commandes historiques sont exclues des ventes Kenza.
+- Le détail affiche le profil, le panier actuel, les préférences avec leur preuve et les dix dernières commandes Kenza. Les motifs et actions du journal sont traduits en français.
+- Filtres : toutes les conversations, transferts ouverts, reprise humaine. Les listes sont limitées aux 100 dernières conversations et se rafraîchissent toutes les dix secondes lorsque l’onglet est visible.
+- Le commerçant peut clôturer les transferts sans changer le mode de réponse, ou rendre la main à Kenza et résoudre les transferts ouverts.
+- Réponse, changement de mode et journal sont transactionnels et utilisent le verrou conversationnel existant. Une conversation inconnue renvoie 404. Un identifiant UUID de réponse évite les doublons après une nouvelle tentative ; un même identifiant avec un autre contenu ou un autre client est rejeté.
+- La supervision reste accessible lorsque les modèles ne sont pas configurés. L’accueil ne devient plus blanc si la sonde de santé renvoie une erreur inattendue.
 
-## Ce qui existe
+Fichiers principaux : `apps/api/src/supervision.ts`, `packages/core/src/domain/supervision.ts`, `db/migrations/004_supervision.sql`, `apps/web/src/MerchantConversations.tsx`, `tests/supervision.test.ts`.
 
-- `apps/web` : React 18, Vite, accueil, boutique avec recherche, profils fictifs, panier, récapitulatif, confirmation et historique Kenza ; connexion et liste de commandes commerçant. Aucun faux échange conversationnel.
-- `apps/api` : Fastify, santé, catalogue, livraison, sessions client/commerçant, panier, devis et confirmation. Le socket annonce explicitement que la conversation sera disponible au lot 4.
-- `apps/worker` : vérification PostgreSQL et signal de santé Redis avec expiration. Ce minuteur est seulement une sonde de santé, pas une relance commerciale.
-- `packages/core` : validation de configuration, connexions, migrations, import et outils métier.
-- `db/migrations/001_catalogue.sql` : catalogue, clients, livraison, promotions, commandes historiques, lignes et exemples de conversations.
-- `Data/seed` : neuf fichiers extraits du ZIP original, contenus inchangés.
-- `docker-compose.yml` : cinq services démarrés, volumes PostgreSQL/Redis, Redis AOF, dépendances de santé. Port PostgreSQL hôte 15432 pour éviter le refus Windows sur 5432.
-- `.env.example` et `.env` local : accès LLM et compte commerçant configurés. Le script `pnpm merchant:setup` a ajouté un compte local avec un mot de passe aléatoire sans toucher aux clés LLM. `.env` et les notes locales `Docs/API's` sont ignorés par Git ; ne jamais en afficher les valeurs.
-- `002_checkout.sql` et `domain/checkout.ts` : panier par client, révision, devis persistant dix minutes, stock verrouillé dans un ordre stable, prix et livraison recalculés, commande/lignes/stock/panier modifiés atomiquement. L’identifiant du devis garantit l’idempotence. Aucun taux de remise n’est accepté depuis le navigateur ; l’autorisation agentique viendra au lot 7.
-- Sessions opaques aléatoires stockées sous empreinte dans Redis, huit heures, cookies HttpOnly/SameSite, protection CSRF, limitation des connexions et révocation. `COOKIE_SECURE=true` pour HTTPS ; configuration locale HTTP liée à 127.0.0.1. `SESSION_SECRET` ancien n’est pas utilisé.
-- `packages/core/src/llm/clients.ts` : SDK officiel OpenAI, client v1 principal, client Azure séparé et client embeddings. Pas de fournisseur de secours implicite, journalisation SDK désactivée et erreurs restreintes à des codes non sensibles.
-- `scripts/check-models.ts` / `pnpm models:check` : diagnostics réels opt-in, trois requêtes courtes avec texte fictif, sans données client.
-- Les trois diagnostics ont aussi réussi depuis le conteneur API Node.js 20 après reconstruction et injection de la configuration Docker.
+## Définition des indicateurs
 
-## Vérifications effectuées
+Période : depuis le démarrage, sans filtre temporel. Une conversation correspond à un client ayant au moins un message utilisateur enregistré. Un client converti a au moins une commande `source=kenza`, `status=confirmed`, créée après son premier message. Plusieurs achats du même client comptent une seule conversion ; aucun message donne un taux non défini, affiché « — ».
 
-- `pnpm check` : TypeScript valide et **22 tests réussis** lors de la dernière exécution avec `TEST_DATABASE_URL` vers PostgreSQL 16 Docker. Sans cette variable : 21 réussis, un scénario concurrent ignoré.
-- `pnpm build` : construction web et serveurs réussie.
-- `pnpm audit --prod` : aucune vulnérabilité connue signalée après correction des versions initiales.
-- `docker compose config --quiet` : configuration Compose valide.
-- `pnpm dlx pnpm@10.26.1 install --lockfile-only --frozen-lockfile --ignore-scripts` : compatibilité du lockfile vérifiée avec la version pnpm du Dockerfile.
-- Tests SQL avec PGlite : application et réapplication des migrations, import des 80 produits / 120 clients / 320 commandes / 449 lignes, absence de réimport et préservation du stock modifié.
-- Tests métier : plafond de 10 %, arrondi conservateur en centimes, priorité et dates des promotions, conditions inconnues refusées, stock nul, frais et modalités de livraison, ville absente, recherche SQL paramétrée.
-- API : échec d’une dépendance renvoie 503 sans fuite du contenu de l’exception ; liveness reste distincte de readiness.
-- Navigateur : accueil inspecté, WebSocket connecté, services absents signalés. À 390 px, largeur du contenu 386 px, pas de débordement horizontal constaté.
+Le montant total inclut la livraison des commandes confirmées. Il ne mesure pas les encaissements. Le parcours manuel et le parcours conversationnel partagent `source=kenza` : ces chiffres n’attribuent donc pas toute la vente à l’agent autonome. Les commandes antérieures au premier message ne comptent pas comme conversion.
 
-Vérification Docker complémentaire : build réussi sous Node 20.19.5 et pnpm 10.26.1 ; migrations et import exécutés sur PostgreSQL 16 ; les 80 produits, 120 clients, 320 commandes et 449 lignes sont présents. Une seconde exécution du seed ne réimporte pas les données. `http://127.0.0.1:8080/` et `/api/health/ready` répondent HTTP 200, avec PostgreSQL, Redis et worker disponibles.
+## État par lot
 
-Vérifications du parcours d’achat : refus des prix modifiés, quantités indisponibles, mauvais propriétaire du devis, absence de confirmation explicite, devis expiré et panier modifié ; application des promotions, retrait gratuit et règles de paiement. Le test PostgreSQL 16 isolé valide un seul succès pour deux acheteurs du dernier article, ainsi qu’une seule commande et un seul décrément pour quatre confirmations concurrentes. Les tables de la boutique ne sont pas modifiées par ce test.
+| Lot | État réel |
+| --- | --- |
+| 1 — Socle | Implémenté et précédemment démarré sous Docker. Compilation locale valide ; Docker actuellement bloqué sur ce poste. |
+| 2 — Données et métier | Migrations, import reproductible, catalogue, prix et livraison testés avec PostgreSQL embarqué. |
+| 3 — Vente complète | Parcours manuel testé ; le chat prépare le panier et le devis, la confirmation exige le bouton explicite. Parcours LLM complet multilingue à revalider. |
+| 4 — Agents et mémoire | Implémentés dans `a30b1db`. Test PostgreSQL de mémoire, reprise et isolation disponible mais non exécuté durant cette reprise. |
+| 5 — Supervision | Complétée et testée via SQL embarqué, HTTP injecté et navigateur. Concurrence avec génération LLM à revalider sur PostgreSQL 16. |
+| 6 — Relances et A/B | À réaliser : le worker ne fait toujours qu’un signal de santé. |
+| 7 — Multimodal et négociation | À réaliser. Le plafond arithmétique existe ; aucune remise agentique, transcription ou recherche photo activée. |
+| 8 — Livraison | Documentation actualisée ; validation intégrale, installation propre et vidéo restent à faire. |
 
-Vérifications HTTP et navigateur : création du profil fictif « Test parcours Kenza », achat de REF-0006 (190 MAD + livraison Casablanca 25 MAD), commande `KEN-738a8677-f0bb-498e-9afc-0f5323d393eb` enregistrée ; panier conservé après rechargement puis vidé via l’interface. Cette commande de démonstration est conservée en base et a consommé une unité. Connexion commerçant, lecture de cette commande et révocation du cookie vérifiées par HTTP réel. Écran de connexion inspecté dans le navigateur ; affichage de la liste après connexion vérifié côté API, pas encore via une session navigateur commerçant. Mise en page client inspectée à 390 px sans débordement DOM. Compilation et exécution Docker Node 20 réussies.
+## Vérifications de cette reprise
 
-Limites : PGlite ne simule pas la concurrence ; le test PostgreSQL dédié couvre les scénarios cités. Les tests unitaires locaux utilisent Node 24. Aucun paiement réel ni statut d’encaissement n’est implémenté. Les profils fictifs sont partagés et ne sont pas une authentification destinée à la production.
+- `pnpm check` : TypeScript valide, 22 tests réussis, zéro échec, deux tests ignorés sans `TEST_DATABASE_URL` (agents persistants et concurrence checkout).
+- `pnpm build` : compilation web et serveurs réussie.
+- Nouveau test de supervision : migrations réelles avec PGlite, exclusion des commandes historiques, conversion unique par client et date du premier message, session commerçant obligatoire, refus d’une session client, CSRF, 404, filtres, absence de doublons, conflits d’identifiant, clôture sans restitution, restitution, annulation transactionnelle sur échec du journal.
+- Test agents PostgreSQL étendu : conflit du verrou avec une action commerçant, absence d’appels modèle en mode humain, reprise après restitution et résolution des transferts. NON EXÉCUTÉ ici faute de moteur PostgreSQL accessible.
+- Navigateur : connexion, contexte client/panier, réponse commerçant, clôture du transfert et retour à Kenza vérifiés via la vraie interface et API, sur une base PGlite isolée en mémoire avec sessions Redis simulées. Aucune commande ni donnée de la boutique Docker n’a été modifiée. Ce contrôle ne valide pas le LLM ni Redis réel.
+- Affichage inspecté sur bureau et à 390 px ; largeur DOM 375 px, pas de débordement horizontal. Une réponse d’erreur de la sonde de santé ne fait plus disparaître l’accueil.
 
-## Blocages et éléments à ne pas inventer
+Les validations antérieures consignaient le démarrage des cinq services, les appels texte GPT-5.5/GPT-4.1 et embeddings, ainsi que le test checkout concurrent sur PostgreSQL 16. Elles n’ont pas été répétées avec succès sur ce poste durant cette reprise.
 
-1. **Docker Desktop : blocage levé.** Le moteur est devenu accessible à la reprise sans modification de ses fichiers internes ni reset. Windows refusait ensuite l’exposition de PostgreSQL sur 5432 ; le port hôte a été déplacé à 15432. Les cinq services ont démarré. Ne pas attribuer la résolution du premier problème à une réparation qui n’a pas été faite.
-2. **LLM : accès validés.** GPT-5.5 utilise `LLM_*` et une base v1 ; GPT-4.1 utilise `AZURE_OPENAI_*`, version `2024-12-01-preview`, déploiement `gpt-4.1`, plafond 16384. Les valeurs déjà saisies sous `SECONDARY_LLM_*` ont été conservées et renommées localement, sans affichage. Les trois appels réels ont réussi : texte GPT-5.5, texte GPT-4.1, embedding `embedder-small-3` de 512 dimensions. L’audio, l’image et les appels d’outils restent à vérifier.
-3. Le README source et les données de démonstration contiennent des chiffres de conversation différents des tables métier. Le catalogue et la grille restent les seules sources opérationnelles des prix, stocks et frais.
+## Blocage Docker constaté
 
-## Prochaines actions
+Docker Desktop a été démarré, mais son backend échoue : `initializing Inference manager ... dockerInference ... The file cannot be accessed by the system.` Le journal de démarrage confirme l’arrêt des moteurs. Les commandes `docker compose up -d --build` et `docker info` sont restées sans réponse puis ont été interrompues. Aucun reset, aucune suppression des données Docker ni modification de ses fichiers internes n’a été effectuée.
 
-1. Garder les cinq services opérationnels et poursuivre les tests de persistance et de concurrence à mesure que le parcours de vente est ajouté.
-2. Poursuivre le lot 4 : persistance des messages, orchestration LangGraph explicite, outils réutilisant les fonctions métier testées, chat et mémoire par client. Ne pas laisser le modèle confirmer seul une commande sans consentement explicite.
-3. Compléter la supervision avec les conversations, les escalades et la reprise humaine ; réutiliser les sessions commerçant existantes.
-4. Utiliser les accès déjà configurés pour développer les outils LangGraph et vérifier les capacités image/audio, sans redemander les clés ni changer les noms de modèles fournis.
-5. Garder le README et ce journal synchronisés, sans marquer une exigence terminée sur la seule présence de fichiers.
+Les clés LLM et identifiants restent dans `.env` ignoré par Git ; ne pas les afficher. Les noms de modèles déjà fournis sont conservés.
 
-## Reprise pratique
+## Couverture à revalider avant livraison
 
-L’instance Docker est accessible sur `http://127.0.0.1:8080`. Des serveurs de développement ont également été démarrés : API `http://127.0.0.1:3000`, interface `http://127.0.0.1:5173`. Vérifier s’ils tournent encore avant de les relancer. Le parcours manuel est utilisable ; le cœur conversationnel reste à réaliser.
+| Exigence | Preuve disponible / travail restant |
+| --- | --- |
+| EX-01 dialogue jusqu’à commande | Implémentation présente ; scénario LLM réel complet à rejouer. |
+| EX-02 outils catalogue/stock | Outils SQL testés, raccordement agent présent ; appels LLM à rejouer. |
+| EX-03 commande en base/tableau de bord | Achat et indicateurs testés sur PostgreSQL embarqué ; revalidation Docker à faire. |
+| EX-04 mémoire deuxième contact | Persistance et test d’intégration présents, test PostgreSQL ignoré ici. |
+| EX-05 relance autonome | Non implémentée. |
+| EX-06 transfert humain | Routes et parcours commerçant validés ; concurrence avec agent à rejouer. |
+| EX-07 tableau de bord | Conversations, commandes, conversion et transferts implémentés et testés. |
+| EX-08 français/arabe/darija | Prompts et réponses localisées présents ; évaluation réelle multilingue restante. |
+| Bonus vocal / photo / négociation / A/B | Non terminés. |
 
-Le dépôt d’origine contenait uniquement le commit `d19b592` publié sur GitHub. Vérifier les commits ajoutés depuis et les fichiers non suivis ; le PDF original et le ZIP ne doivent pas être ajoutés aveuglément avec les fichiers applicatifs. Aucune publication des changements applicatifs n’a été effectuée à la rédaction de ce journal.
+## Prochaine action concrète
+
+1. Rétablir le moteur Docker puis lancer `docker compose up -d --build` pour appliquer notamment `004_supervision.sql`.
+2. Exécuter les tests avec `TEST_DATABASE_URL` vers PostgreSQL 16, puis rejouer chat → devis → bouton confirmation → commande commerçant et transfert/restitution avec les modèles configurés.
+3. Réaliser le lot 6 : relance BullMQ unique à dernier message client + 30 minutes, contrôle de fraîcheur et d’éligibilité au moment de l’envoi, annulation achat/refus/reprise humaine, variante A/B persistante et attribution documentée.
+4. Poursuivre vocal, photo et négociation, puis évaluation multilingue et livraison.
+
+Les modifications de cette reprise ne sont pas commitées ni publiées. Le PDF original et le ZIP restent non suivis ; ne pas les inclure aveuglément.

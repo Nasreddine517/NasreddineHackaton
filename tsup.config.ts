@@ -7,6 +7,7 @@ export default defineConfig({
     db: 'packages/core/src/db/cli.ts',
     'check-models': 'scripts/check-models.ts',
     'check-agents': 'scripts/check-agents.ts',
+    'check-followups': 'scripts/check-followups.ts',
   },
   format: ['esm'],
   platform: 'node',

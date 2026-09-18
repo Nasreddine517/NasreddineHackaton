@@ -6,7 +6,7 @@ Kenza est un projet d’agent commercial pour les boutiques qui vendent par mess
 
 Projet réalisé dans le cadre du hackathon **ESISA × Numeos Technology**, sujet 02, du 17 au 19 septembre 2026.
 
-> **État du projet : parcours d’achat manuel opérationnel.** Catalogue, panier persistant, confirmation transactionnelle et commandes côté commerçant sont implémentés. Les cinq services Docker fonctionnent ; 22 tests passent, y compris les achats concurrents sur PostgreSQL. Les agents conversationnels, la mémoire, les escalades, les relances et le multimodal restent à réaliser. Le [plan par lots](Docs/PLAN_DEVELOPPEMENT.md) et le [journal de reprise](Docs/ETAT_DEVELOPPEMENT.md) détaillent les validations et les prochaines étapes.
+> **État du projet : achat, chat et supervision implémentés.** Catalogue, panier, confirmation transactionnelle, agents LangGraph, mémoire PostgreSQL et transfert humain sont présents. Le tableau de bord affiche les commandes Kenza, la conversion après échange et les transferts ; les réponses commerçant sont protégées contre les doublons. Dernière validation locale : 22 tests réussis, deux tests PostgreSQL ignorés faute de moteur Docker disponible, compilation réussie et parcours commerçant vérifié sur une base de test isolée. Relances, A/B testing, multimodal et négociation restent à réaliser. Le [journal de reprise](Docs/ETAT_DEVELOPPEMENT.md) précise les limites et le prochain jalon.
 
 ## Le besoin
 

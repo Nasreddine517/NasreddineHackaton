@@ -22,7 +22,19 @@ export function App() {
     const abort = new AbortController();
     fetch('/api/health/ready', { signal: abort.signal })
       .then((r) => r.json())
-      .then(setHealth)
+      .then((data: unknown) => {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'services' in data &&
+          data.services &&
+          typeof data.services === 'object' &&
+          ['postgres', 'redis', 'worker'].every(
+            (key) => typeof (data.services as Record<string, unknown>)[key] === 'boolean',
+          )
+        )
+          setHealth(data as Health);
+      })
       .catch(() => {})
       .finally(() => {
         if (!abort.signal.aborted) setChecked(true);
@@ -150,7 +162,8 @@ export function App() {
             <span className="overline">AVANCEMENT DU PROJET</span>
             <h2 id="foundation-title">Le socle prend forme.</h2>
             <p>
-              Le chat, la mémoire client et la préparation de commande sont disponibles. Les relances et les entrées vocales ou visuelles restent en développement.
+              Le chat, la mémoire client et la préparation de commande sont disponibles. Les
+              relances et les entrées vocales ou visuelles restent en développement.
             </p>
           </div>
           <ul className="service-list" aria-live="polite">

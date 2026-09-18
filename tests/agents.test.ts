@@ -4,7 +4,11 @@ import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { migrate } from '../packages/core/src/db/migrate.js';
 import { seed } from '../packages/core/src/db/seed.js';
-import { createConversationService } from '../packages/core/src/agents/conversation.js';
+import {
+  createConversationService,
+  withConversationLock,
+} from '../packages/core/src/agents/conversation.js';
+import { updateSupervision } from '../packages/core/src/domain/supervision.js';
 import type { AgentModels, Plan } from '../packages/core/src/agents/models.js';
 import { getCart } from '../packages/core/src/domain/checkout.js';
 
@@ -122,6 +126,32 @@ test(
       result = await restored.send(a, { id: randomUUID(), message: 'Je précise ma demande' });
       assert.equal(modelCalls, after);
       assert.equal(result.messages.at(-1)?.role, 'user');
+      await withConversationLock(db, a, async () => {
+        await assert.rejects(
+          () => updateSupervision(db, a, { mode: 'auto' }),
+          (e: unknown) => e instanceof Error && 'code' in e && e.code === 'CONVERSATION_BUSY',
+        );
+      });
+      await updateSupervision(db, a, {
+        id: randomUUID(),
+        message: 'Le commerçant reprend votre demande.',
+      });
+      result = await restored.send(a, { id: randomUUID(), message: 'Merci au commerçant' });
+      assert.equal(modelCalls, after);
+      assert.equal(result.mode, 'human');
+      await updateSupervision(db, a, { mode: 'auto' });
+      result = await restored.send(a, { id: randomUUID(), message: 'Salam de nouveau' });
+      assert.equal(modelCalls, after + 1);
+      assert.equal(result.mode, 'auto');
+      assert.equal(
+        (
+          await db.query(
+            "SELECT count(*)::int AS n FROM escalations WHERE customer_id=$1 AND status='open'",
+            [a],
+          )
+        ).rows[0].n,
+        0,
+      );
       assert.equal(
         Number((await db.query("SELECT count(*) AS n FROM orders WHERE source='kenza'")).rows[0].n),
         0,

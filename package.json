@@ -19,7 +19,9 @@
     "check": "pnpm typecheck && pnpm test",
     "models:check": "tsx scripts/check-models.ts",
     "merchant:setup": "tsx scripts/setup-merchant.ts",
-    "agents:check": "tsx scripts/check-agents.ts"
+    "agents:check": "tsx scripts/check-agents.ts",
+    "followups:check": "tsx scripts/check-followups.ts",
+    "test:integration": "tsx scripts/check-integration.ts"
   },
   "dependencies": {
     "@fastify/websocket": "11.2.0",

@@ -18,6 +18,7 @@ export type ChatMessage = {
 };
 export type ChatHistory = {
   mode: 'auto' | 'human';
+  followupRefused?: boolean;
   messages: ChatMessage[];
   memory: { key: string; value: string; evidence: string }[];
 };
@@ -55,6 +56,9 @@ export function Chat({
     let active = true,
       socket: WebSocket | undefined,
       retry: ReturnType<typeof setTimeout> | undefined;
+    const poll = setInterval(() => {
+      if (!document.hidden && socket) void refresh();
+    }, 15000);
     const refresh = () =>
       chatApi<ChatHistory>('/client/conversation')
         .then((h) => {
@@ -102,6 +106,7 @@ export function Chat({
     return () => {
       active = false;
       if (retry) clearTimeout(retry);
+      clearInterval(poll);
       socket?.close();
     };
   }, [customerId]);
@@ -168,6 +173,26 @@ export function Chat({
         <p>La conversation sera disponible lorsque les modèles seront connectés.</p>
       ) : (
         <>
+          <div className="memory">
+            {history.followupRefused ? (
+              <span>Les relances sont désactivées pour votre profil.</span>
+            ) : (
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void chatApi('/client/followups/refuse', {})
+                    .then(() => chatApi<ChatHistory>('/client/conversation'))
+                    .then(setHistory)
+                    .catch(() => setError('Votre choix n’a pas pu être enregistré. Réessayez.'))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Ne plus recevoir de relances
+              </button>
+            )}
+          </div>
           {history.memory.length > 0 && (
             <details className="memory">
               <summary>Ce que je retiens de vos préférences</summary>

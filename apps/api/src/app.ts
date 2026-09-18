@@ -6,6 +6,7 @@ import { registerCommerce, type MerchantConfig } from './commerce.js';
 import type { createConnections } from '../../../packages/core/src/connections.js';
 import type { AgentModels } from '../../../packages/core/src/agents/models.js';
 import { registerChat } from './chat.js';
+import { registerSupervision } from './supervision.js';
 
 type Dependencies = ReturnType<typeof createConnections>;
 
@@ -26,6 +27,7 @@ export async function createApp(
   await app.register(websocket);
   const auth = await registerCommerce(app, connections, merchant);
   if (models) await registerChat(app, connections, auth, models);
+  else await registerSupervision(app, connections.db, auth);
   app.get('/api/health/live', async () => ({ status: 'ok', service: 'kenza-api' }));
   app.get('/api/health/ready', async (_request, reply) => {
     const [db, redis, heartbeat] = await Promise.allSettled([
@@ -50,7 +52,7 @@ export async function createApp(
     chatEnabled: Boolean(models),
     merchantEnabled: Boolean(merchant.MERCHANT_EMAIL && merchant.MERCHANT_PASSWORD),
     checkoutEnabled: true,
-    followupEnabled: false,
+    followupEnabled: Boolean(models),
   }));
   app.get('/api/events', { websocket: true }, (socket) => {
     socket.send(JSON.stringify({ type: 'connected', service: 'kenza-api' }));

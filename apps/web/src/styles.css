@@ -1010,6 +1010,78 @@ summary:focus-visible {
 .supervision {
   margin-top: 42px;
 }
+.followup-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.followup-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  border: 1px solid #d9e2d5;
+  border-radius: 10px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.merchant-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.merchant-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #d9e2d5;
+  border-radius: 12px;
+  padding: 18px;
+}
+.merchant-metrics strong {
+  font-size: 25px;
+  color: #175a48;
+}
+.merchant-metrics span,
+.merchant-metrics small,
+.metric-explanation {
+  font-size: 12px;
+  color: #5e7264;
+}
+.metric-explanation {
+  line-height: 1.7;
+  margin-bottom: 26px;
+}
+.merchant-context {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #d9e2d5;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.merchant-context summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.merchant-context li {
+  margin: 10px 0;
+}
+.merchant-context small {
+  display: block;
+  color: #5e7264;
+}
+.supervision .merchant-toolbar {
+  flex-wrap: wrap;
+}
+.supervision .panel {
+  min-width: 0;
+}
 .supervision-grid {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);

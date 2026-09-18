@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { ArrowLeft, ShoppingBag, Trash2, Store } from 'lucide-react';
 import { Chat } from './Chat';
 import { MerchantConversations } from './MerchantConversations';
+import { MerchantFollowups } from './MerchantFollowups';
 import type { Product } from '../../../packages/core/src/domain/catalogue.js';
 import type { CheckoutSnapshot } from '../../../packages/core/src/domain/checkout.js';
 
@@ -580,6 +581,7 @@ export function Commerce({ mode, onBack }: { mode: 'client' | 'merchant'; onBack
               </div>
               <OrderList orders={orders} />
               <MerchantConversations />
+              <MerchantFollowups />
             </>
           ))}
       </main>
