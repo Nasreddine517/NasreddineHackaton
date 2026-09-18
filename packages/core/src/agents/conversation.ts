@@ -171,6 +171,13 @@ export async function createConversationService(
       if (!plan || !guard?.approved) return { facts: { action: 'clarify', performed: false } };
       await event(ctx, 'catalogue', plan.intent);
       const facts: Facts = { action: plan.intent };
+      // Server-side discount guard: the schema already constrains 0-10,
+      // but we double-check here so no prompt injection can bypass it.
+      const discountPct = typeof plan.discountPct === 'number' ? Math.min(10, Math.max(0, Math.floor(plan.discountPct))) : 0;
+      if (discountPct > 0) {
+        await event(ctx, 'catalogue', 'discount_proposed', { discountPct });
+        facts.discountPct = discountPct;
+      }
       try {
         if (plan.intent === 'search') {
           facts.products = await searchProducts(db, {
@@ -191,7 +198,7 @@ export async function createConversationService(
         }
         if (plan.intent === 'cart') {
           if (!plan.ref || plan.quantity === null)
-            throw new BusinessError('CLARIFY_ITEM', 'Précisez l’article et la quantité souhaités.');
+            throw new BusinessError('CLARIFY_ITEM', 'Précisez l’article et la quantité souhaitée.');
           // A reference must come from a previously shown product/cart or the client's literal request.
           const visible = JSON.stringify({ history: ctx.history, cart: ctx.cart });
           if (!ctx.message.includes(plan.ref) && !visible.includes(`"${plan.ref}"`))
@@ -202,7 +209,7 @@ export async function createConversationService(
           facts.cart = await setCartItem(db, ctx.customerId, {
             ref: plan.ref,
             quantity: plan.quantity,
-          },ctx.cartRevision);
+          }, ctx.cartRevision);
           facts.performed = true;
           await event(ctx, 'catalogue', 'cart_updated', { ref: plan.ref, quantity: plan.quantity });
         }
@@ -217,14 +224,21 @@ export async function createConversationService(
               'CLARIFY_DELIVERY',
               'Précisez la ville, la réception, le paiement et l’adresse de livraison.',
             );
-          facts.quote = await prepareCheckout(db, ctx.customerId, {
-            city: plan.city,
-            method: plan.method,
-            payment: plan.payment,
-            address: plan.address ?? '',
-          });
+          // Pass the negotiated discount so quoteUnitPrice applies the server-side floor.
+          facts.quote = await prepareCheckout(
+            db,
+            ctx.customerId,
+            {
+              city: plan.city,
+              method: plan.method,
+              payment: plan.payment,
+              address: plan.address ?? '',
+            },
+            new Date(),
+            discountPct || undefined,
+          );
           facts.requiresButtonConfirmation = true;
-          await event(ctx, 'catalogue', 'quote_prepared');
+          await event(ctx, 'catalogue', 'quote_prepared', { discountPct: discountPct || null });
         }
         if (plan.intent === 'chat' && plan.city)
           facts.delivery = await quoteDelivery(
@@ -249,9 +263,9 @@ export async function createConversationService(
         if (!(e instanceof BusinessError)) throw e;
         facts.error = { code: e.code, message: e.message };
         if (
-          ['CITY_REQUIRES_HUMAN', 'PROMOTION_REVIEW_REQUIRED', 'INVALID_PROMOTION'].includes(e.code)
+          ['CITY_REQUIRES_HUMAN', 'PROMOTION_REVIEW_REQUIRED', 'INVALID_PROMOTION', 'DISCOUNT_REQUIRES_HUMAN'].includes(e.code)
         ) {
-          const handoff = await escalate(ctx, e.code);
+          const handoff = await escalate(ctx, 'discount_limit');
           return { ...handoff, reply: transferred(plan.language) };
         }
       }

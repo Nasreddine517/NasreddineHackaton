@@ -40,6 +40,7 @@ test(
       payment: null,
       escalation: 'none',
       refuseFollowup: false,
+      discountPct: null,
       memories: [],
     };
     const models: AgentModels = {

@@ -122,6 +122,7 @@ async function snapshot(
   customerId: string,
   fulfillment: Fulfillment,
   now: Date,
+  discountPct?: number,
 ): Promise<CheckoutSnapshot> {
   const items = await getCart(db, customerId);
   if (!items.length) throw new BusinessError('EMPTY_CART', 'Votre panier est vide.');
@@ -145,6 +146,8 @@ async function snapshot(
       baseCentimes: product.priceCentimes,
       stock: product.stock,
       promotion: product.promotion ?? undefined,
+      // discountPct only applies when no active promotion; quoteUnitPrice enforces this.
+      discountPercent: discountPct,
       now,
     });
     lines.push({
@@ -191,11 +194,12 @@ export async function prepareCheckout(
   customerId: string,
   input: unknown,
   now = new Date(),
+  discountPct?: number,
 ) {
   const fulfillment = fulfillmentSchema.parse(input);
   return transaction(pool, async (db) => {
     const revision = await lockCart(db, customerId);
-    const quote = await snapshot(db, customerId, fulfillment, now);
+    const quote = await snapshot(db, customerId, fulfillment, now, discountPct);
     const id = randomUUID();
     const expiresAt = new Date(now.getTime() + 10 * 60_000).toISOString();
     await db.query(

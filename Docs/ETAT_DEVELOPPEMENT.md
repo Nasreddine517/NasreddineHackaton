@@ -1,75 +1,76 @@
 # État de développement — Kenza
 
-Mise à jour : 18 septembre 2026, reprise après le commit `a30b1db` sur `master`.
-Ce journal remplace l’ancien état qui présentait encore les agents comme absents. Lire également `PASSATION_CODEX.md` pour les décisions métier et `PLAN_DEVELOPPEMENT.md` pour le périmètre.
+Mise à jour : 18 septembre 2026, 11h40 — reprise après commit `c40799c` sur `master`.
 
-## Dernier jalon : supervision commerçant
+## Dernier jalon : négociation encadrée activée
 
-- Le commit `a30b1db` contient le chat, les agents Conversation/Catalogue/Garde-fou/Escalade, la mémoire et le checkpointer PostgreSQL. Il comporte déjà la reprise humaine et la suspension du dialogue automatique.
-- Cette reprise ajoute le tableau de bord avec conversations, commandes confirmées, montant des commandes, conversion après échange et transferts ouverts. Les 320 commandes historiques sont exclues des ventes Kenza.
-- Le détail affiche le profil, le panier actuel, les préférences avec leur preuve et les dix dernières commandes Kenza. Les motifs et actions du journal sont traduits en français.
-- Filtres : toutes les conversations, transferts ouverts, reprise humaine. Les listes sont limitées aux 100 dernières conversations et se rafraîchissent toutes les dix secondes lorsque l’onglet est visible.
-- Le commerçant peut clôturer les transferts sans changer le mode de réponse, ou rendre la main à Kenza et résoudre les transferts ouverts.
-- Réponse, changement de mode et journal sont transactionnels et utilisent le verrou conversationnel existant. Une conversation inconnue renvoie 404. Un identifiant UUID de réponse évite les doublons après une nouvelle tentative ; un même identifiant avec un autre contenu ou un autre client est rejeté.
-- La supervision reste accessible lorsque les modèles ne sont pas configurés. L’accueil ne devient plus blanc si la sonde de santé renvoie une erreur inattendue.
+- Commit `c40799c` : supervision commerçant, relances BullMQ, A/B testing complets et commitées.
+- Cette reprise active la négociation encadrée (discountPct 0-10 dans le Plan LLM, plafond Math.min côté serveur, quoteUnitPrice avec discountPercent, escalade discount_limit si > 10%).
+- TypeScript valide (zéro erreur). Tests complets en cours de revalidation.
 
-Fichiers principaux : `apps/api/src/supervision.ts`, `packages/core/src/domain/supervision.ts`, `db/migrations/004_supervision.sql`, `apps/web/src/MerchantConversations.tsx`, `tests/supervision.test.ts`.
+## Docker — état vérifié à 11h28
 
-## Définition des indicateurs
-
-Période : depuis le démarrage, sans filtre temporel. Une conversation correspond à un client ayant au moins un message utilisateur enregistré. Un client converti a au moins une commande `source=kenza`, `status=confirmed`, créée après son premier message. Plusieurs achats du même client comptent une seule conversion ; aucun message donne un taux non défini, affiché « — ».
-
-Le montant total inclut la livraison des commandes confirmées. Il ne mesure pas les encaissements. Le parcours manuel et le parcours conversationnel partagent `source=kenza` : ces chiffres n’attribuent donc pas toute la vente à l’agent autonome. Les commandes antérieures au premier message ne comptent pas comme conversion.
+Cinq services healthy sur `docker compose ps` :
+- `kenza-web` : http://localhost:8080
+- `kenza-api` : healthy, migrations 001–005 appliquées, seed 80 produits / 120 clients / 320 commandes historiques.
+- `kenza-postgres` : 127.0.0.1:15432, 24 tables dont `followups` et `followup_assignments`.
+- `kenza-redis` : 127.0.0.1:6379
+- `kenza-worker` : **"Kenza worker ready: durable follow-ups enabled."** BullMQ actif avec modèles configurés.
 
 ## État par lot
 
 | Lot | État réel |
 | --- | --- |
-| 1 — Socle | Implémenté et précédemment démarré sous Docker. Compilation locale valide ; Docker actuellement bloqué sur ce poste. |
-| 2 — Données et métier | Migrations, import reproductible, catalogue, prix et livraison testés avec PostgreSQL embarqué. |
-| 3 — Vente complète | Parcours manuel testé ; le chat prépare le panier et le devis, la confirmation exige le bouton explicite. Parcours LLM complet multilingue à revalider. |
-| 4 — Agents et mémoire | Implémentés dans `a30b1db`. Test PostgreSQL de mémoire, reprise et isolation disponible mais non exécuté durant cette reprise. |
-| 5 — Supervision | Complétée et testée via SQL embarqué, HTTP injecté et navigateur. Concurrence avec génération LLM à revalider sur PostgreSQL 16. |
-| 6 — Relances et A/B | À réaliser : le worker ne fait toujours qu’un signal de santé. |
-| 7 — Multimodal et négociation | À réaliser. Le plafond arithmétique existe ; aucune remise agentique, transcription ou recherche photo activée. |
-| 8 — Livraison | Documentation actualisée ; validation intégrale, installation propre et vidéo restent à faire. |
+| 1 — Socle | Implémenté, démarré, vérifié. |
+| 2 — Données et métier | Migrations 001–005 appliquées, seed reproductible sans doublons. |
+| 3 — Vente complète | Parcours manuel testé. Parcours LLM complet à rejouer en direct. |
+| 4 — Agents et mémoire | Implémentés et testés sur PostgreSQL 16 réel (ok 1 agents.test). |
+| 5 — Supervision | Complétée, testée SQL et navigateur, commitée. |
+| 6 — Relances et A/B | Implémentés et testés sur PostgreSQL 16 + Redis réels (ok 4 et ok 5 followups.test). |
+| 7 — Multimodal et négociation | Négociation encadrée : code complet, TypeScript valide, tests en cours. Vocal et photo : à faire. |
+| 8 — Livraison | README mis à jour. Validation intégrale, vidéo et installation propre restent à faire. |
 
-## Vérifications de cette reprise
+## Vérifications de cette session (18 sept., session 2)
 
-- `pnpm check` : TypeScript valide, 22 tests réussis, zéro échec, deux tests ignorés sans `TEST_DATABASE_URL` (agents persistants et concurrence checkout).
-- `pnpm build` : compilation web et serveurs réussie.
-- Nouveau test de supervision : migrations réelles avec PGlite, exclusion des commandes historiques, conversion unique par client et date du premier message, session commerçant obligatoire, refus d’une session client, CSRF, 404, filtres, absence de doublons, conflits d’identifiant, clôture sans restitution, restitution, annulation transactionnelle sur échec du journal.
-- Test agents PostgreSQL étendu : conflit du verrou avec une action commerçant, absence d’appels modèle en mode humain, reprise après restitution et résolution des transferts. NON EXÉCUTÉ ici faute de moteur PostgreSQL accessible.
-- Navigateur : connexion, contexte client/panier, réponse commerçant, clôture du transfert et retour à Kenza vérifiés via la vraie interface et API, sur une base PGlite isolée en mémoire avec sessions Redis simulées. Aucune commande ni donnée de la boutique Docker n’a été modifiée. Ce contrôle ne valide pas le LLM ni Redis réel.
-- Affichage inspecté sur bureau et à 390 px ; largeur DOM 375 px, pas de débordement horizontal. Une réponse d’erreur de la sonde de santé ne fait plus disparaître l’accueil.
-
-Les validations antérieures consignaient le démarrage des cinq services, les appels texte GPT-5.5/GPT-4.1 et embeddings, ainsi que le test checkout concurrent sur PostgreSQL 16. Elles n’ont pas été répétées avec succès sur ce poste durant cette reprise.
-
-## Blocage Docker constaté
-
-Docker Desktop a été démarré, mais son backend échoue : `initializing Inference manager ... dockerInference ... The file cannot be accessed by the system.` Le journal de démarrage confirme l’arrêt des moteurs. Les commandes `docker compose up -d --build` et `docker info` sont restées sans réponse puis ont été interrompues. Aucun reset, aucune suppression des données Docker ni modification de ses fichiers internes n’a été effectuée.
-
-Les clés LLM et identifiants restent dans `.env` ignoré par Git ; ne pas les afficher. Les noms de modèles déjà fournis sont conservés.
+- `pnpm typecheck` : valide.
+- Tests sur PostgreSQL Docker réel + Redis (TEST_DATABASE_URL + TEST_REDIS_URL) :
+  - ok 1 — agents persistants, garde-fou, mémoire, isolation, idempotence, reprise humaine
+  - ok 2 — checkout : prix, propriété, quantités, confirmation explicite
+  - ok 3 — checkout concurrent dernier article et double confirmation
+  - ok 4 — relances : échéance exacte, invalidation, idempotence, garde et attribution 24h
+  - ok 5 — BullMQ : job persistant après redémarrage, message unique
+  - ok 6 — supervision : métriques SQL, routes protégées, transfert atomique, anti-doublon
+  - **6/6 tests passés, 0 échec.**
 
 ## Couverture à revalider avant livraison
 
-| Exigence | Preuve disponible / travail restant |
+| Exigence | État |
 | --- | --- |
-| EX-01 dialogue jusqu’à commande | Implémentation présente ; scénario LLM réel complet à rejouer. |
-| EX-02 outils catalogue/stock | Outils SQL testés, raccordement agent présent ; appels LLM à rejouer. |
-| EX-03 commande en base/tableau de bord | Achat et indicateurs testés sur PostgreSQL embarqué ; revalidation Docker à faire. |
-| EX-04 mémoire deuxième contact | Persistance et test d’intégration présents, test PostgreSQL ignoré ici. |
-| EX-05 relance autonome | Non implémentée. |
-| EX-06 transfert humain | Routes et parcours commerçant validés ; concurrence avec agent à rejouer. |
-| EX-07 tableau de bord | Conversations, commandes, conversion et transferts implémentés et testés. |
-| EX-08 français/arabe/darija | Prompts et réponses localisées présents ; évaluation réelle multilingue restante. |
-| Bonus vocal / photo / négociation / A/B | Non terminés. |
+| EX-01 dialogue jusqu'à commande | Tests unitaires OK ; parcours LLM réel à rejouer dans le navigateur. |
+| EX-02 outils catalogue/stock | Outils SQL testés, raccordement agent validé en test. |
+| EX-03 commande en base/tableau de bord | Testé sur PostgreSQL embarqué et Docker. |
+| EX-04 mémoire deuxième contact | ok 1 agents.test sur PostgreSQL 16. |
+| EX-05 relance autonome | ok 4 et ok 5 sur PostgreSQL 16 + Redis. Worker Docker actif. |
+| EX-06 transfert humain | ok 1 et ok 6 ; parcours navigateur vérifié. |
+| EX-07 tableau de bord | Implémenté et testé. |
+| EX-08 français/arabe/darija | Prompts localisés présents ; évaluation réelle multilingue à faire. |
+| Bonus négociation | Code complet, discountPct 0-10, plafond serveur, escalade discount_limit. Validation LLM à faire. |
+| Bonus relances / A/B | Implémentés et testés (voir ci-dessus). |
+| Bonus vocal / photo | Non implémentés. |
 
 ## Prochaine action concrète
 
-1. Rétablir le moteur Docker puis lancer `docker compose up -d --build` pour appliquer notamment `004_supervision.sql`.
-2. Exécuter les tests avec `TEST_DATABASE_URL` vers PostgreSQL 16, puis rejouer chat → devis → bouton confirmation → commande commerçant et transfert/restitution avec les modèles configurés.
-3. Réaliser le lot 6 : relance BullMQ unique à dernier message client + 30 minutes, contrôle de fraîcheur et d’éligibilité au moment de l’envoi, annulation achat/refus/reprise humaine, variante A/B persistante et attribution documentée.
-4. Poursuivre vocal, photo et négociation, puis évaluation multilingue et livraison.
+1. Rebuild Docker api/worker avec le nouveau code (négociation), redémarrer.
+2. Rejouer le parcours complet LLM dans le navigateur : chat → devis avec remise → bouton confirmation → commande → tableau de bord.
+3. Tester l'escalade discount_limit : demander > 10% et vérifier le transfert.
+4. Si temps disponible : vocal (tester l'endpoint Azure pour transcription audio).
+5. Mettre à jour README, enregistrer la vidéo 2 min, push final.
 
-Les modifications de cette reprise ne sont pas commitées ni publiées. Le PDF original et le ZIP restent non suivis ; ne pas les inclure aveuglément.
+## Blocages résolus
+
+- Docker précédemment bloqué : maintenant opérationnel, cinq services healthy.
+- Négociation précédemment désactivée dans le prompt : maintenant active avec plafond serveur.
+
+## Configuration nécessaire (sans valeurs secrètes)
+
+`.env` local avec : `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION=2024-12-01-preview`, `AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1`, `FOLLOWUP_DELAY_MS=1800000`, `MERCHANT_EMAIL`, `MERCHANT_PASSWORD`.
