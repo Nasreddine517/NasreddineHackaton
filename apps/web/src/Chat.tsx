@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Send, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Send, ShieldCheck, Mic, ImagePlus } from 'lucide-react';
 import type { Product } from '../../../packages/core/src/domain/catalogue.js';
 import type { CheckoutSnapshot } from '../../../packages/core/src/domain/checkout.js';
 import { chatApi } from './chat-api';
@@ -48,6 +48,8 @@ export function Chat({
     [enabled, setEnabled] = useState(false),
     [online, setOnline] = useState(false);
   const [confirmed, setConfirmed] = useState<Record<string, string>>({});
+  const [recording, setRecording] = useState(false);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -151,6 +153,61 @@ export function Chat({
       setError(e instanceof Error ? e.message : 'Confirmation indisponible.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder.current = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      mediaRecorder.current.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.current.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          sendMedia('/client/messages/audio', { audio: base64 }, 'Analyse audio en cours…');
+        };
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      mediaRecorder.current.start();
+      setRecording(true);
+    } catch (e) {
+      setError("Microphone non accessible.");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder.current && recording) {
+      mediaRecorder.current.stop();
+      setRecording(false);
+    }
+  }
+
+  async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || busy) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      sendMedia('/client/messages/image', { image: reader.result as string }, 'Analyse visuelle en cours…');
+    };
+  }
+
+  async function sendMedia(endpoint: string, payload: any, stageText: string) {
+    setBusy(true);
+    setError('');
+    setStage(stageText);
+    try {
+      setHistory(await chatApi<ChatHistory>(endpoint, payload));
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur réseau.');
+    } finally {
+      setBusy(false);
+      setStage('');
     }
   }
   return (
@@ -320,14 +377,22 @@ export function Chat({
                 dir="auto"
                 placeholder="Écrivez à Kenza…"
                 maxLength={2000}
-                required
-                disabled={busy}
+                disabled={busy || recording}
               />
             </label>
-            <button disabled={busy || !text.trim()} aria-label="Envoyer le message">
-              <Send size={18} />
-              <span>Envoyer</span>
-            </button>
+            <div className="chat-actions">
+              <button type="button" onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={stopRecording} className={recording ? 'recording text-button' : 'text-button'} disabled={busy} aria-label="Maintenez pour parler">
+                <Mic size={18} color={recording ? 'red' : 'currentColor'} />
+              </button>
+              <label className="image-upload text-button" style={{ cursor: 'pointer', padding: '10px' }} aria-label="Envoyer une image">
+                <ImagePlus size={18} />
+                <input type="file" accept="image/*" capture="environment" onChange={handleImage} style={{ display: 'none' }} disabled={busy || recording} />
+              </label>
+              <button disabled={busy || (!text.trim() && !recording)} aria-label="Envoyer le message">
+                <Send size={18} />
+                <span>Envoyer</span>
+              </button>
+            </div>
           </form>
         </>
       )}

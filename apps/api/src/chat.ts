@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { createConnections } from '../../../packages/core/src/connections.js';
 import type { registerCommerce } from './commerce.js';
+import crypto from 'node:crypto';
+import { toFile } from 'openai';
+import { readConfig } from '../../../packages/core/src/config.js';
+import { createAzureClient } from '../../../packages/core/src/llm/clients.js';
 import {
   createConversationService,
   withConversationLock,
@@ -52,6 +56,63 @@ export async function registerChat(
     const id = await auth.session(request, 'client');
     await auth.rateLimit(`rate:chat:${id}`, 30);
     return service.send(id, request.body);
+  });
+
+  app.post('/api/client/messages/audio', async (request) => {
+    const id = await auth.session(request, 'client');
+    await auth.rateLimit(`rate:chat:${id}`, 30);
+    const body = request.body as { audio?: string };
+    if (!body?.audio) throw new Error("Audio manquant");
+    
+    const config = readConfig();
+    const azureClient = createAzureClient(config);
+    const buffer = Buffer.from(body.audio, 'base64');
+    const file = await toFile(buffer, 'audio.webm');
+    
+    try {
+      const transcription = await azureClient.audio.transcriptions.create({
+        file,
+        model: 'whisper',
+      });
+      if (!transcription.text) throw new Error("Échec de la transcription");
+      return service.send(id, { id: crypto.randomUUID(), message: transcription.text });
+    } catch (err) {
+      request.log.error(err, 'Audio transcription failed');
+      throw new Error("Le service vocal n'est pas disponible pour le moment.");
+    }
+  });
+
+  app.post('/api/client/messages/image', async (request) => {
+    const id = await auth.session(request, 'client');
+    await auth.rateLimit(`rate:chat:${id}`, 30);
+    const body = request.body as { image?: string };
+    if (!body?.image) throw new Error("Image manquante");
+    
+    const config = readConfig();
+    const azureClient = createAzureClient(config);
+    
+    try {
+      const response = await azureClient.chat.completions.create({
+        model: config.AZURE_OPENAI_DEPLOYMENT_NAME,
+        max_tokens: 150,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Décris précisément le vêtement principal sur cette image (type, couleur, matière, style) de manière très concise (15 mots max), pour aider un système de recherche catalogue." },
+              { type: "image_url", image_url: { url: body.image } }
+            ]
+          }
+        ]
+      });
+      
+      const description = response.choices[0]?.message.content?.trim() || "Vêtement non reconnu";
+      const text = `[Image attachée : ${description}] Je cherche ce type d'article.`;
+      return service.send(id, { id: crypto.randomUUID(), message: text });
+    } catch (err) {
+      request.log.error(err, 'Image analysis failed');
+      throw new Error("L'analyse visuelle n'est pas disponible pour le moment.");
+    }
   });
   app.get(
     '/api/client/events',
